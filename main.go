@@ -36,7 +36,10 @@ func readCheckins(netLog string) (r []string, err error) {
 		if err != nil {
 			break
 		}
-		r = append(r, strings.ToUpper(string(line)))
+		s := strings.ToUpper(string(line))
+		if strings.TrimSpace(s) != "" {
+			r = append(r, s)
+		}
 	}
 	return
 }
@@ -60,6 +63,8 @@ func main() {
 		if _, ok := callSigns[v]; ok {
 			fmt.Printf("%v\n", v)
 			confirmedMembers[v] = struct{}{}
+		} else {
+			fmt.Printf("%v - \n", v)
 		}
 	}
 	fmt.Printf("Confirmed members: %v\n", len(confirmedMembers))
