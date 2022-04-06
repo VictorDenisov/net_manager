@@ -25,23 +25,25 @@ func readCallsigns() (r map[string]struct{}, err error) {
 	return
 }
 
-func readCheckins(netLog string) (r []string, err error) {
+func readCheckins(netLog string) (r chan string, err error) {
+	r = make(chan string)
 	f, err := os.Open(netLog)
 	if err != nil {
 		return nil, err
 	}
 	lineReader := bufio.NewReader(f)
-	for {
-		line, _, err := lineReader.ReadLine()
-		if err != nil {
-			break
+	go func() {
+		for {
+			line, _, err := lineReader.ReadLine()
+			if err != nil {
+				break
+			}
+			s := strings.ToUpper(string(line))
+			r <- strings.TrimSpace(s)
 		}
-		s := strings.ToUpper(string(line))
-		if strings.TrimSpace(s) != "" {
-			r = append(r, s)
-		}
-	}
-	return
+		close(r)
+	}()
+	return r, nil
 }
 
 func main() {
@@ -59,12 +61,20 @@ func main() {
 		os.Exit(1)
 	}
 	confirmedMembers := make(map[string]struct{})
-	for _, v := range netLog {
+	for v := range netLog {
 		if _, ok := callSigns[v]; ok {
-			fmt.Printf("%v\n", v)
+			if _, ok := confirmedMembers[v]; ok {
+				fmt.Printf("%v = \n", v)
+			} else {
+				fmt.Printf("%v\n", v)
+			}
 			confirmedMembers[v] = struct{}{}
 		} else {
-			fmt.Printf("%v - \n", v)
+			if v == "" {
+				fmt.Printf("\n")
+			} else {
+				fmt.Printf("%v - \n", v)
+			}
 		}
 	}
 	fmt.Printf("Confirmed members: %v\n", len(confirmedMembers))
