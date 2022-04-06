@@ -61,21 +61,28 @@ func main() {
 		os.Exit(1)
 	}
 	confirmedMembers := make(map[string]struct{})
+	sectionMembers := make(map[string]struct{})
 	for v := range netLog {
 		if _, ok := callSigns[v]; ok {
 			if _, ok := confirmedMembers[v]; ok {
 				fmt.Printf("%v = \n", v)
 			} else {
 				fmt.Printf("%v\n", v)
+				sectionMembers[v] = struct{}{}
 			}
 			confirmedMembers[v] = struct{}{}
 		} else {
 			if v == "" {
+				if len(sectionMembers) > 0 {
+					fmt.Printf("Section count: %v\n", len(sectionMembers))
+					sectionMembers = make(map[string]struct{})
+				}
 				fmt.Printf("\n")
 			} else {
 				fmt.Printf("%v - \n", v)
 			}
 		}
 	}
+	fmt.Printf("Section count: %v\n", len(sectionMembers))
 	fmt.Printf("Confirmed members: %v\n", len(confirmedMembers))
 }
