@@ -13,6 +13,7 @@ func readCallsigns() (r map[string]struct{}, err error) {
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
 	r = make(map[string]struct{})
 	lineReader := bufio.NewReader(f)
 	for {
@@ -31,8 +32,10 @@ func readCheckins(netLog string) (r chan string, err error) {
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
 	lineReader := bufio.NewReader(f)
 	go func() {
+		defer close(r)
 		for {
 			line, _, err := lineReader.ReadLine()
 			if err != nil {
@@ -41,25 +44,11 @@ func readCheckins(netLog string) (r chan string, err error) {
 			s := strings.ToUpper(string(line))
 			r <- strings.TrimSpace(s)
 		}
-		close(r)
 	}()
 	return r, nil
 }
 
-func main() {
-	netLogFile := flag.String("net-log", "net_log.txt", "File with net log")
-	flag.Parse()
-
-	callSigns, err := readCallsigns()
-	if err != nil {
-		fmt.Printf("Failed to read call signs: %v", err)
-		os.Exit(1)
-	}
-	netLog, err := readCheckins(*netLogFile)
-	if err != nil {
-		fmt.Printf("Failed to read net log: %v", err)
-		os.Exit(1)
-	}
+func countCheckins(callSigns map[string]struct{}, netLog <-chan string) {
 	confirmedMembers := make(map[string]struct{})
 	sectionMembers := make(map[string]struct{})
 	for v := range netLog {
@@ -85,4 +74,21 @@ func main() {
 	}
 	fmt.Printf("Section count: %v\n", len(sectionMembers))
 	fmt.Printf("Confirmed members: %v\n", len(confirmedMembers))
+}
+
+func main() {
+	netLogFile := flag.String("net-log", "net_log.txt", "File with net log")
+	flag.Parse()
+
+	callSigns, err := readCallsigns()
+	if err != nil {
+		fmt.Printf("Failed to read call signs: %v", err)
+		os.Exit(1)
+	}
+	netLog, err := readCheckins(*netLogFile)
+	if err != nil {
+		fmt.Printf("Failed to read net log: %v", err)
+		os.Exit(1)
+	}
+	countCheckins(callSigns, netLog)
 }
