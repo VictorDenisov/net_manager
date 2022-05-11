@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -32,9 +33,9 @@ func readCheckins(netLog string) (r chan string, err error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
 	lineReader := bufio.NewReader(f)
 	go func() {
+		defer f.Close()
 		defer close(r)
 		for {
 			line, _, err := lineReader.ReadLine()
@@ -76,7 +77,28 @@ func countCheckins(callSigns map[string]struct{}, netLog <-chan string) {
 	fmt.Printf("Confirmed members: %v\n", len(confirmedMembers))
 }
 
+func sortCheckins(callSigns map[string]struct{}, netLog <-chan string) {
+	confirmedMembers := make(map[string]struct{})
+	for v := range netLog {
+		if _, ok := callSigns[v]; ok {
+			confirmedMembers[v] = struct{}{}
+		}
+	}
+	ls := make([]string, 0, len(confirmedMembers))
+	for v := range confirmedMembers {
+		ls = append(ls, v)
+	}
+	sort.Strings(ls)
+	for _, v := range ls {
+		fmt.Printf("%v\n", v)
+	}
+}
+
 func main() {
+	count := flag.Bool("count", true, "Count checkin numbers")
+	sort := flag.Bool("sort", false, "Sort and print member checkins")
+	timeSheet := flag.Bool("time-sheet", false, "Calculate time sheet for the specified month")
+	monthPrefix := flag.String("month-prefix", "", "Month prefix in the format year-mo for drawing time sheet")
 	netLogFile := flag.String("net-log", "net_log.txt", "File with net log")
 	flag.Parse()
 
@@ -90,5 +112,23 @@ func main() {
 		fmt.Printf("Failed to read net log: %v", err)
 		os.Exit(1)
 	}
-	countCheckins(callSigns, netLog)
+	if *sort {
+		sortCheckins(callSigns, netLog)
+	} else if *timeSheet {
+		if validMonthPrefixFormat(monthPrefix) {
+			fmt.Printf("Month prefix is invalid")
+			os.Exit(1)
+		}
+		drawTimeSheet(*monthPrefix)
+	} else if *count {
+		countCheckins(callSigns, netLog)
+	}
+}
+
+func validMonthPrefixFormat(monthPrefix *string) bool {
+	// TODO improve month prefix validation
+	return monthPrefix != nil
+}
+
+func drawTimeSheet(monthPrefix string) {
 }
