@@ -7,6 +7,8 @@ import (
 	"os"
 	"sort"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func readCallsigns() (r map[string]struct{}, err error) {
@@ -100,6 +102,7 @@ func main() {
 		fmt.Printf("Failed to retrieve working directory: %v", err)
 		os.Exit(1)
 	}
+	log.Tracef("Working directory: %v", workingDirectory)
 
 	count := flag.Bool("count", true, "Count checkin numbers")
 	sort := flag.Bool("sort", false, "Sort and print member checkins")
