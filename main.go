@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -124,7 +125,7 @@ func main() {
 	if *sort {
 		sortCheckins(callSigns, netLog)
 	} else if *timeSheet {
-		if validMonthPrefixFormat(monthPrefix) {
+		if !validMonthPrefixFormat(monthPrefix) {
 			fmt.Printf("Month prefix is invalid")
 			os.Exit(1)
 		}
@@ -139,5 +140,17 @@ func validMonthPrefixFormat(monthPrefix *string) bool {
 	return monthPrefix != nil
 }
 
-func drawTimeSheet(monthPrefix string, workingDirectory string) {
+func drawTimeSheet(monthPrefix string, workingDir string) error {
+	list, err := filepath.Glob(monthPrefix + "*")
+	if err != nil {
+		return err
+	}
+	for _, f := range list {
+		checkins, err := readCheckins(f)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Checkins len: %v\n", checkins)
+	}
+	return nil
 }
