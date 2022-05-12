@@ -95,6 +95,12 @@ func sortCheckins(callSigns map[string]struct{}, netLog <-chan string) {
 }
 
 func main() {
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		fmt.Printf("Failed to retrieve working directory: %v", err)
+		os.Exit(1)
+	}
+
 	count := flag.Bool("count", true, "Count checkin numbers")
 	sort := flag.Bool("sort", false, "Sort and print member checkins")
 	timeSheet := flag.Bool("time-sheet", false, "Calculate time sheet for the specified month")
@@ -119,7 +125,7 @@ func main() {
 			fmt.Printf("Month prefix is invalid")
 			os.Exit(1)
 		}
-		drawTimeSheet(*monthPrefix)
+		drawTimeSheet(*monthPrefix, workingDirectory)
 	} else if *count {
 		countCheckins(callSigns, netLog)
 	}
@@ -130,5 +136,5 @@ func validMonthPrefixFormat(monthPrefix *string) bool {
 	return monthPrefix != nil
 }
 
-func drawTimeSheet(monthPrefix string) {
+func drawTimeSheet(monthPrefix string, workingDirectory string) {
 }
