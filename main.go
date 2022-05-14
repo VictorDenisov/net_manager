@@ -92,37 +92,53 @@ func distributeCheckins(callSigns map[string]struct{}, netLog <-chan string) (r 
 				}
 			}
 		}
+		sectionMarker <- struct{}{}
+		close(dupCallSign)
+		close(memberCallSign)
+		close(sectionMarker)
+		close(unknownCallSign)
 	}()
-	sectionMarker <- struct{}{}
 	return r
 }
 
 func countCheckins(callSigns map[string]struct{}, netLog <-chan string) {
-	confirmedMembers := make(map[string]struct{})
-	sectionMembers := make(map[string]struct{})
-	for v := range netLog {
-		if _, ok := callSigns[v]; ok {
-			if _, ok := confirmedMembers[v]; ok {
-				fmt.Printf("%v = \n", v)
-			} else {
-				fmt.Printf("%v\n", v)
-				sectionMembers[v] = struct{}{}
+	checkinChans := distributeCheckins(callSigns, netLog)
+
+	sectionCount := 0
+	totalCount := 0
+loop:
+	for {
+		select {
+		case dup, ok := <-checkinChans.dupCallSign:
+			if !ok {
+				break loop
 			}
-			confirmedMembers[v] = struct{}{}
-		} else {
-			if v == "" {
-				if len(sectionMembers) > 0 {
-					fmt.Printf("Section count: %v\n", len(sectionMembers))
-					sectionMembers = make(map[string]struct{})
-				}
-				fmt.Printf("\n")
-			} else {
-				fmt.Printf("%v - \n", v)
+			fmt.Printf("%v = \n", dup)
+		case member, ok := <-checkinChans.memberCallSign:
+			if !ok {
+				break loop
 			}
+			fmt.Printf("%v\n", member)
+			sectionCount++
+			totalCount++
+		case _, ok := <-checkinChans.sectionMarker:
+			if !ok {
+				break loop
+			}
+			if sectionCount > 0 {
+				fmt.Printf("Section count: %v\n", sectionCount)
+				sectionCount = 0
+			}
+			fmt.Printf("\n")
+		case unknown, ok := <-checkinChans.unknownCallSign:
+			if !ok {
+				break loop
+			}
+			fmt.Printf("%v - \n", unknown)
 		}
 	}
-	fmt.Printf("Section count: %v\n", len(sectionMembers))
-	fmt.Printf("Confirmed members: %v\n", len(confirmedMembers))
+
+	fmt.Printf("Confirmed members: %v\n", totalCount)
 }
 
 func sortCheckins(callSigns map[string]struct{}, netLog <-chan string) {
