@@ -52,6 +52,51 @@ func readCheckins(netLog string) (r chan string, err error) {
 	return r, nil
 }
 
+type CheckinChans struct {
+	dupCallSign     <-chan string
+	memberCallSign  <-chan string
+	sectionMarker   <-chan struct{}
+	unknownCallSign <-chan string
+}
+
+func distributeCheckins(callSigns map[string]struct{}, netLog <-chan string) (r *CheckinChans) {
+	confirmedMembers := make(map[string]struct{})
+	sectionMembers := make(map[string]struct{})
+
+	dupCallSign := make(chan string)
+	memberCallSign := make(chan string)
+	sectionMarker := make(chan struct{})
+	unknownCallSign := make(chan string)
+
+	r = &CheckinChans{
+		dupCallSign:     dupCallSign,
+		memberCallSign:  memberCallSign,
+		sectionMarker:   sectionMarker,
+		unknownCallSign: unknownCallSign,
+	}
+	go func() {
+		for v := range netLog {
+			if _, ok := callSigns[v]; ok {
+				if _, ok := confirmedMembers[v]; ok {
+					dupCallSign <- v
+				} else {
+					memberCallSign <- v
+					sectionMembers[v] = struct{}{}
+				}
+				confirmedMembers[v] = struct{}{}
+			} else {
+				if v == "" {
+					sectionMarker <- struct{}{}
+				} else {
+					unknownCallSign <- v
+				}
+			}
+		}
+	}()
+	sectionMarker <- struct{}{}
+	return r
+}
+
 func countCheckins(callSigns map[string]struct{}, netLog <-chan string) {
 	confirmedMembers := make(map[string]struct{})
 	sectionMembers := make(map[string]struct{})
