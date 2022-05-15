@@ -190,7 +190,7 @@ func main() {
 			fmt.Printf("Month prefix is invalid")
 			os.Exit(1)
 		}
-		drawTimeSheet(*monthPrefix, workingDirectory)
+		drawTimeSheet(*monthPrefix, workingDirectory, callSigns)
 	} else if *count {
 		countCheckins(callSigns, netLog)
 	}
@@ -201,7 +201,7 @@ func validMonthPrefixFormat(monthPrefix *string) bool {
 	return monthPrefix != nil
 }
 
-func drawTimeSheet(monthPrefix string, workingDir string) error {
+func drawTimeSheet(monthPrefix string, workingDir string, callSigns map[string]struct{}) error {
 	list, err := filepath.Glob(monthPrefix + "*")
 	if err != nil {
 		return err
@@ -211,7 +211,36 @@ func drawTimeSheet(monthPrefix string, workingDir string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Checkins len: %v\n", checkins)
+		totalCount := totalCheckins(callSigns, checkins)
+		hours := float64(totalCount) / 3
+		fmt.Printf("%v:\t%d\t%0.3f\t%0.3f\t%0.3f\t%0.3f\n", f, totalCount, hours, 0.5, 0.25, hours+0.5+0.25)
 	}
 	return nil
+}
+
+func totalCheckins(callSigns map[string]struct{}, netLog <-chan string) (r int) {
+	checkinChans := distributeCheckins(callSigns, netLog)
+loop:
+	for {
+		select {
+		case _, ok := <-checkinChans.dupCallSign:
+			if !ok {
+				break loop
+			}
+		case _, ok := <-checkinChans.memberCallSign:
+			if !ok {
+				break loop
+			}
+			r++
+		case _, ok := <-checkinChans.sectionMarker:
+			if !ok {
+				break loop
+			}
+		case _, ok := <-checkinChans.unknownCallSign:
+			if !ok {
+				break loop
+			}
+		}
+	}
+	return r
 }
