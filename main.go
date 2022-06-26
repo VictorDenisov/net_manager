@@ -12,6 +12,44 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+func main() {
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		fmt.Printf("Failed to retrieve working directory: %v", err)
+		os.Exit(1)
+	}
+	log.Tracef("Working directory: %v", workingDirectory)
+
+	count := flag.Bool("count", true, "Count checkin numbers")
+	sort := flag.Bool("sort", false, "Sort and print member checkins")
+	timeSheet := flag.Bool("time-sheet", false, "Calculate time sheet for the specified month")
+	monthPrefix := flag.String("month-prefix", "", "Month prefix in the format year-mo for drawing time sheet")
+	netLogFile := flag.String("net-log", "net_log.txt", "File with net log")
+	flag.Parse()
+
+	callSigns, err := readCallsigns()
+	if err != nil {
+		fmt.Printf("Failed to read call signs: %v", err)
+		os.Exit(1)
+	}
+	netLog, err := readCheckins(*netLogFile)
+	if err != nil {
+		fmt.Printf("Failed to read net log: %v", err)
+		os.Exit(1)
+	}
+	if *sort {
+		sortCheckins(callSigns, netLog)
+	} else if *timeSheet {
+		if !validMonthPrefixFormat(monthPrefix) {
+			fmt.Printf("Month prefix is invalid")
+			os.Exit(1)
+		}
+		drawTimeSheet(*monthPrefix, workingDirectory, callSigns)
+	} else if *count {
+		countCheckins(callSigns, netLog)
+	}
+}
+
 func readCallsigns() (r map[string]struct{}, err error) {
 	f, err := os.Open("dbCallSigns.txt")
 	if err != nil {
@@ -155,44 +193,6 @@ func sortCheckins(callSigns map[string]struct{}, netLog <-chan string) {
 	sort.Strings(ls)
 	for _, v := range ls {
 		fmt.Printf("%v\n", v)
-	}
-}
-
-func main() {
-	workingDirectory, err := os.Getwd()
-	if err != nil {
-		fmt.Printf("Failed to retrieve working directory: %v", err)
-		os.Exit(1)
-	}
-	log.Tracef("Working directory: %v", workingDirectory)
-
-	count := flag.Bool("count", true, "Count checkin numbers")
-	sort := flag.Bool("sort", false, "Sort and print member checkins")
-	timeSheet := flag.Bool("time-sheet", false, "Calculate time sheet for the specified month")
-	monthPrefix := flag.String("month-prefix", "", "Month prefix in the format year-mo for drawing time sheet")
-	netLogFile := flag.String("net-log", "net_log.txt", "File with net log")
-	flag.Parse()
-
-	callSigns, err := readCallsigns()
-	if err != nil {
-		fmt.Printf("Failed to read call signs: %v", err)
-		os.Exit(1)
-	}
-	netLog, err := readCheckins(*netLogFile)
-	if err != nil {
-		fmt.Printf("Failed to read net log: %v", err)
-		os.Exit(1)
-	}
-	if *sort {
-		sortCheckins(callSigns, netLog)
-	} else if *timeSheet {
-		if !validMonthPrefixFormat(monthPrefix) {
-			fmt.Printf("Month prefix is invalid")
-			os.Exit(1)
-		}
-		drawTimeSheet(*monthPrefix, workingDirectory, callSigns)
-	} else if *count {
-		countCheckins(callSigns, netLog)
 	}
 }
 
