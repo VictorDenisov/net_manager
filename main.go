@@ -20,25 +20,34 @@ func main() {
 	}
 	log.Tracef("Working directory: %v", workingDirectory)
 
-	count := flag.Bool("count", true, "Count checkin numbers")
+	count := flag.Bool("count", false, "Count checkin numbers")
 	sort := flag.Bool("sort", false, "Sort and print member checkins")
 	timeSheet := flag.Bool("time-sheet", false, "Calculate time sheet for the specified month")
 	monthPrefix := flag.String("month-prefix", "", "Month prefix in the format year-mo for drawing time sheet")
 	netLogFile := flag.String("net-log", "net_log.txt", "File with net log")
 	flag.Parse()
 
+	log.Tracef("Parsed command line args:")
+	log.Tracef("Count: ", *count)
+	log.Tracef("Sort: ", *sort)
+	log.Tracef("Time Sheet: ", timeSheet)
+
 	callSigns, err := readCallsigns()
 	if err != nil {
 		fmt.Printf("Failed to read call signs: %v", err)
 		os.Exit(1)
 	}
-	netLog, err := readCheckins(*netLogFile)
-	if err != nil {
-		fmt.Printf("Failed to read net log: %v", err)
-		os.Exit(1)
-	}
-	if *sort {
-		sortCheckins(callSigns, netLog)
+	if *sort || *count {
+		netLog, err := readCheckins(*netLogFile)
+		if err != nil {
+			fmt.Printf("Failed to read net log: %v", err)
+			os.Exit(1)
+		}
+		if *sort {
+			sortCheckins(callSigns, netLog)
+		} else if *count {
+			countCheckins(callSigns, netLog)
+		}
 	} else if *timeSheet {
 		if !validMonthPrefixFormat(monthPrefix) {
 			fmt.Printf("Month prefix is invalid")
@@ -46,7 +55,6 @@ func main() {
 		}
 		drawTimeSheet(*monthPrefix, workingDirectory, callSigns)
 	} else if *count {
-		countCheckins(callSigns, netLog)
 	}
 }
 
