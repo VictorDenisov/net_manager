@@ -2,15 +2,19 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
+
+const CityResponsiblityScheduleFileName = "city_responsibility_schedule.txt"
 
 func main() {
 	count := flag.Bool("count", false, "Count checkin numbers")
@@ -63,8 +67,43 @@ func main() {
 		}
 		drawTimeSheet(*monthPrefix, workingDirectory, callSigns)
 	} else if *sendEmails {
-		log.Info("Sending emails")
+		log.Trace("Sending emails")
+		schedule, err := readCityResponsibilitySchedule()
+		if err != nil {
+			fmt.Printf("Failed to read city responsibility schedule: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Parsed city responsibility schedule: %v\n", schedule)
 	}
+}
+
+type CityResponsibilityRecord struct {
+	Date time.Time
+	City string
+}
+
+func readCityResponsibilitySchedule() (records []CityResponsibilityRecord, err error) {
+	f, err := os.Open(CityResponsiblityScheduleFileName)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to open city responsibility schedule: %w", err)
+	}
+	defer f.Close()
+	records = make([]CityResponsibilityRecord, 0)
+	lineReader := bufio.NewReader(f)
+	for {
+		line, _, err := lineReader.ReadLine()
+		if err != nil {
+			break
+		}
+		whiteSpace := bytes.IndexAny(line, "\t ")
+		time, err := time.Parse("1/2/2006", string(line[0:whiteSpace]))
+		if err != nil {
+			return nil, fmt.Errorf("Failed to parse city responsibility schedule: %w", err)
+		}
+		cityName := string(bytes.TrimSpace(line[whiteSpace:]))
+		records = append(records, CityResponsibilityRecord{time, cityName})
+	}
+	return
 }
 
 func readCallsigns() (r map[string]struct{}, err error) {
