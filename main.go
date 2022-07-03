@@ -68,18 +68,22 @@ func main() {
 		drawTimeSheet(*monthPrefix, workingDirectory, callSigns)
 	} else if *sendEmails {
 		log.Trace("Sending emails")
-		schedule, err := readCityResponsibilitySchedule()
-		if err != nil {
-			fmt.Printf("Failed to read city responsibility schedule: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("Parsed city responsibility schedule: %v\n", schedule)
+		callSendEmailsLogic()
 	}
 }
 
 type CityResponsibilityRecord struct {
 	Date time.Time
 	City string
+}
+
+func callSendEmailsLogic() {
+	schedule, err := readCityResponsibilitySchedule()
+	if err != nil {
+		fmt.Printf("Failed to read city responsibility schedule: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Parsed city responsibility schedule: %v\n", schedule)
 }
 
 func readCityResponsibilitySchedule() (records []CityResponsibilityRecord, err error) {
