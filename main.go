@@ -61,7 +61,6 @@ func main() {
 			os.Exit(1)
 		}
 		drawTimeSheet(*monthPrefix, workingDirectory, callSigns)
-	} else if *count {
 	}
 }
 
