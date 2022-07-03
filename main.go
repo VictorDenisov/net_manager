@@ -16,6 +16,7 @@ func main() {
 	count := flag.Bool("count", false, "Count checkin numbers")
 	sort := flag.Bool("sort", false, "Sort and print member checkins")
 	timeSheet := flag.Bool("time-sheet", false, "Calculate time sheet for the specified month")
+	sendEmails := flag.Bool("send-emails", false, "Check if it's time to send emails")
 	monthPrefix := flag.String("month-prefix", "", "Month prefix in the format year-mo for drawing time sheet")
 	netLogFile := flag.String("net-log", "net_log.txt", "File with net log")
 	logLevelString := flag.String("debug-level", "info", "Debug level of the application")
@@ -61,6 +62,8 @@ func main() {
 			os.Exit(1)
 		}
 		drawTimeSheet(*monthPrefix, workingDirectory, callSigns)
+	} else if *sendEmails {
+		log.Info("Sending emails")
 	}
 }
 
