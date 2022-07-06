@@ -266,15 +266,18 @@ func drawTimeSheet(monthPrefix string, workingDir string, callSigns map[string]s
 	if err != nil {
 		return err
 	}
+	var totalHours float64
 	for _, f := range list {
 		checkins, err := readCheckins(f)
 		if err != nil {
 			return err
 		}
 		totalCount := totalCheckins(callSigns, checkins)
-		hours := float64(totalCount) / 3
-		fmt.Printf("%v:\t%d\t%0.3f\t%0.3f\t%0.3f\t%0.3f\n", f, totalCount, hours, 0.5, 0.25, hours+0.5+0.25)
+		hours := float64(totalCount)/3 + 0.5 + 0.25
+		fmt.Printf("%v:\t%d\t%0.3f\t%0.3f\t%0.3f\t%0.3f\n", f, totalCount, hours, 0.5, 0.25, hours)
+		totalHours += hours
 	}
+	fmt.Printf("Total hours: %0.3f\n", totalHours)
 	return nil
 }
 
