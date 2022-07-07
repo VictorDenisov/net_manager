@@ -14,7 +14,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const CityResponsiblityScheduleFileName = "city_responsibility_schedule.txt"
+const (
+	CityResponsiblityScheduleFileName = "city_responsibility_schedule.txt"
+	callsignDB                        = "ContactListByName.csv"
+)
 
 func main() {
 	count := flag.Bool("count", false, "Count checkin numbers")
@@ -68,7 +71,6 @@ func main() {
 		drawTimeSheet(*monthPrefix, workingDirectory, callSigns)
 	} else if *sendEmails {
 		log.Trace("Checking if emails should be sent")
-		log.Trace("Sending emails")
 		callSendEmailsLogic()
 	}
 }
@@ -119,7 +121,6 @@ type Member struct {
 
 func readCallsignDB() (r map[string]Member, err error) {
 	r = make(map[string]Member)
-	const callsignDB = "ContactListByName.csv"
 	f, err := os.Open(callsignDB)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open call signdb: %v %w", callsignDB, err)
