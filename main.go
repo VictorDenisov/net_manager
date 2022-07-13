@@ -44,7 +44,7 @@ func main() {
 	log.Tracef("Sort: ", *sort)
 	log.Tracef("Time Sheet: ", timeSheet)
 
-	callSigns, err := readCallsigns()
+	callSigns, err := readCallsignDB()
 	if err != nil {
 		fmt.Printf("Failed to read call signs: %v", err)
 		os.Exit(1)
@@ -67,6 +67,7 @@ func main() {
 		}
 		drawTimeSheet(*monthPrefix, workingDirectory, callSigns)
 	} else if *sendEmails {
+		log.Trace("Checking if emails should be sent")
 		log.Trace("Sending emails")
 		callSendEmailsLogic()
 	}
@@ -110,20 +111,31 @@ func readCityResponsibilitySchedule() (records []CityResponsibilityRecord, err e
 	return
 }
 
-func readCallsigns() (r map[string]struct{}, err error) {
-	f, err := os.Open("dbCallSigns.txt")
+type Member struct {
+	Name     string
+	Callsign string
+	Email    string
+}
+
+func readCallsignDB() (r map[string]Member, err error) {
+	r = make(map[string]Member)
+	const callsignDB = "ContactListByName.csv"
+	f, err := os.Open(callsignDB)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to open call signdb: %v %w", callsignDB, err)
 	}
-	defer f.Close()
-	r = make(map[string]struct{})
 	lineReader := bufio.NewReader(f)
 	for {
 		line, _, err := lineReader.ReadLine()
 		if err != nil {
 			break
 		}
-		r[string(line)] = struct{}{}
+		fields := strings.Split(string(line), ",")
+		name := strings.TrimSpace(fields[1])
+		callsign := strings.TrimSpace(fields[2])
+		email := strings.TrimSpace(fields[7])
+
+		r[callsign] = Member{name, callsign, email}
 	}
 	return
 }
@@ -157,7 +169,7 @@ type CheckinChans struct {
 	unknownCallSign <-chan string
 }
 
-func distributeCheckins(callSigns map[string]struct{}, netLog <-chan string) (r *CheckinChans) {
+func distributeCheckins(callSigns map[string]Member, netLog <-chan string) (r *CheckinChans) {
 	confirmedMembers := make(map[string]struct{})
 	sectionMembers := make(map[string]struct{})
 
@@ -199,7 +211,7 @@ func distributeCheckins(callSigns map[string]struct{}, netLog <-chan string) (r 
 	return r
 }
 
-func countCheckins(callSigns map[string]struct{}, netLog <-chan string) {
+func countCheckins(callSigns map[string]Member, netLog <-chan string) {
 	checkinChans := distributeCheckins(callSigns, netLog)
 
 	sectionCount := 0
@@ -239,7 +251,7 @@ loop:
 	fmt.Printf("Confirmed members: %v\n", totalCount)
 }
 
-func sortCheckins(callSigns map[string]struct{}, netLog <-chan string) {
+func sortCheckins(callSigns map[string]Member, netLog <-chan string) {
 	confirmedMembers := make(map[string]struct{})
 	for v := range netLog {
 		if _, ok := callSigns[v]; ok {
@@ -261,7 +273,7 @@ func validMonthPrefixFormat(monthPrefix *string) bool {
 	return monthPrefix != nil
 }
 
-func drawTimeSheet(monthPrefix string, workingDir string, callSigns map[string]struct{}) error {
+func drawTimeSheet(monthPrefix string, workingDir string, callSigns map[string]Member) error {
 	list, err := filepath.Glob(monthPrefix + "*")
 	if err != nil {
 		return err
@@ -281,7 +293,7 @@ func drawTimeSheet(monthPrefix string, workingDir string, callSigns map[string]s
 	return nil
 }
 
-func totalCheckins(callSigns map[string]struct{}, netLog <-chan string) (r int) {
+func totalCheckins(callSigns map[string]Member, netLog <-chan string) (r int) {
 	checkinChans := distributeCheckins(callSigns, netLog)
 loop:
 	for {
