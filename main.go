@@ -67,6 +67,7 @@ func main() {
 		}
 		drawTimeSheet(*monthPrefix, workingDirectory, callSigns)
 	} else if *sendEmails {
+		log.Trace("Checking if emails should be sent")
 		log.Trace("Sending emails")
 		callSendEmailsLogic()
 	}
@@ -106,6 +107,35 @@ func readCityResponsibilitySchedule() (records []CityResponsibilityRecord, err e
 		}
 		cityName := string(bytes.TrimSpace(line[whiteSpace:]))
 		records = append(records, CityResponsibilityRecord{time, cityName})
+	}
+	return
+}
+
+type Member struct {
+	Name     string
+	Callsign string
+	Email    string
+}
+
+func readCallsignDB() (r map[string]Member, err error) {
+	r = make(map[string]Member)
+	const callsignDB = "ContactListByName.csv"
+	f, err := os.Open(callsignDB)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to open call signdb: %v %w", callsignDB, err)
+	}
+	lineReader := bufio.NewReader(f)
+	for {
+		line, _, err := lineReader.ReadLine()
+		if err != nil {
+			break
+		}
+		fields := strings.Split(string(line), ",")
+		name := strings.TrimSpace(fields[1])
+		callsign := strings.TrimSpace(fields[2])
+		email := strings.TrimSpace(fields[7])
+
+		r[callsign] = Member{name, callsign, email}
 	}
 	return
 }
