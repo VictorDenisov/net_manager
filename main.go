@@ -17,6 +17,7 @@ import (
 const (
 	CityResponsiblityScheduleFileName = "city_responsibility_schedule.txt"
 	callsignDB                        = "ContactListByName.csv"
+	NetcontrolScheduleFileName        = "netcontrol_schedule.txt"
 )
 
 func main() {
@@ -81,12 +82,58 @@ type CityResponsibilityRecord struct {
 }
 
 func callSendEmailsLogic() {
+	now := time.Now()
+	s, err := readNetcontrolSchedule()
+	fmt.Printf("%v %v\n", s, err)
+	if now.Weekday() == time.Sunday {
+		notifyNetControl()
+	}
 	schedule, err := readCityResponsibilitySchedule()
 	if err != nil {
 		fmt.Printf("Failed to read city responsibility schedule: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Printf("Parsed city responsibility schedule: %v\n", schedule)
+}
+
+type NetcontrolScheduleRecord struct {
+	Date     time.Time
+	Callsign string
+}
+
+func notifyNetControl() error {
+	netcontrolSchedule, err := readNetcontrolSchedule()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%v", netcontrolSchedule)
+	return nil
+}
+
+func readNetcontrolSchedule() ([]NetcontrolScheduleRecord, error) {
+	f, err := os.Open(NetcontrolScheduleFileName)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to open netcontrol schedule: %w", err)
+	}
+	defer f.Close()
+
+	records := make([]NetcontrolScheduleRecord, 0)
+	lineReader := bufio.NewReader(f)
+	for {
+		line, _, err := lineReader.ReadLine()
+		if err != nil {
+			break
+		}
+		tokens := bytes.Split(line, []byte("\t"))
+		fmt.Printf("%v %v\n", string(tokens[0]), string(tokens[1]))
+		date, err := time.Parse("1/2/2006", string(bytes.TrimSpace(tokens[0])))
+		if err != nil {
+			return nil, fmt.Errorf("Failed to parse netcontrol schedule: %w", err)
+		}
+		callsign := string(bytes.TrimSpace(tokens[1]))
+		records = append(records, NetcontrolScheduleRecord{date, callsign})
+	}
+	return records, nil
 }
 
 func readCityResponsibilitySchedule() (records []CityResponsibilityRecord, err error) {
