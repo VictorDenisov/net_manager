@@ -12,6 +12,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	_ "gopkg.in/gomail.v2"
 )
 
 const (
@@ -72,7 +73,7 @@ func main() {
 		drawTimeSheet(*monthPrefix, workingDirectory, callSigns)
 	} else if *sendEmails {
 		log.Trace("Checking if emails should be sent")
-		callSendEmailsLogic()
+		callSendEmailsLogic(callSigns)
 	}
 }
 
@@ -81,12 +82,10 @@ type CityResponsibilityRecord struct {
 	City string
 }
 
-func callSendEmailsLogic() {
+func callSendEmailsLogic(callsignDB map[string]Member) {
 	now := time.Now()
-	s, err := readNetcontrolSchedule()
-	fmt.Printf("%v %v\n", s, err)
-	if now.Weekday() == time.Sunday {
-		notifyNetControl()
+	if now.Weekday() == time.Monday {
+		notifyNetControl(callsignDB)
 	}
 	schedule, err := readCityResponsibilitySchedule()
 	if err != nil {
@@ -101,12 +100,44 @@ type NetcontrolScheduleRecord struct {
 	Callsign string
 }
 
-func notifyNetControl() error {
+func equalByDate(a, b time.Time) bool {
+	return a.Year() == b.Year() && a.Month() == b.Month() && a.Day() == b.Day()
+}
+
+func notifyNetControl(callsignDB map[string]Member) error {
 	netcontrolSchedule, err := readNetcontrolSchedule()
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%v", netcontrolSchedule)
+	now := time.Now()
+	inTwoDaysFromNow := now.Add(24 * time.Hour)
+	var upcomingNc NetcontrolScheduleRecord
+	for _, ncRecord := range netcontrolSchedule {
+		if equalByDate(inTwoDaysFromNow, ncRecord.Date) {
+			upcomingNc = ncRecord
+			break
+		}
+	}
+
+	fmt.Printf("Chosen nc record: %v\n", upcomingNc)
+	fmt.Printf("Sending email to: %v\n", callsignDB[strings.ToUpper(upcomingNc.Callsign)].Email)
+
+	/*
+		d := gomail.NewDialer(config.Station.Mail.SmtpHost, config.Station.Mail.Port, config.Station.Mail.Email, config.Station.Mail.Password)
+		if config.Pota.ContactEmail != "" && config.Pota.ContactName != "" {
+			m := gomail.NewMessage()
+			m.SetHeader("From", config.Station.Mail.Email)
+			m.SetHeader("To", config.Pota.ContactEmail)
+			m.SetHeader("Subject", fmt.Sprintf("%v K-%v %s", callSign, parkCode, parkName))
+			m.SetBody("text/plain", fmt.Sprintf("Hello %s,\n\nHere is my log for K-%v on %v.\n\nThanks, Victor.", config.Pota.ContactName, parkCode, date))
+			m.Attach(potaFileName)
+
+			if err := d.DialAndSend(m); err != nil {
+				panic(err)
+			}
+		}
+	*/
+
 	return nil
 }
 
@@ -125,7 +156,6 @@ func readNetcontrolSchedule() ([]NetcontrolScheduleRecord, error) {
 			break
 		}
 		tokens := bytes.Split(line, []byte("\t"))
-		fmt.Printf("%v %v\n", string(tokens[0]), string(tokens[1]))
 		date, err := time.Parse("1/2/2006", string(bytes.TrimSpace(tokens[0])))
 		if err != nil {
 			return nil, fmt.Errorf("Failed to parse netcontrol schedule: %w", err)
