@@ -88,7 +88,7 @@ type CityResponsibilityRecord struct {
 
 func callSendEmailsLogic(callsignDB map[string]Member, config *Config) {
 	now := time.Now()
-	if now.Weekday() == time.Monday {
+	if now.Weekday() == time.Sunday {
 		notifyNetControl(callsignDB, config)
 	}
 	schedule, err := readCityResponsibilitySchedule()
@@ -114,7 +114,7 @@ func notifyNetControl(callsignDB map[string]Member, config *Config) error {
 		return err
 	}
 	now := time.Now()
-	inTwoDaysFromNow := now.Add(24 * time.Hour)
+	inTwoDaysFromNow := now.Add(48 * time.Hour)
 	var upcomingNc NetcontrolScheduleRecord
 	for _, ncRecord := range netcontrolSchedule {
 		if equalByDate(inTwoDaysFromNow, ncRecord.Date) {
