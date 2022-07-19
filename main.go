@@ -31,6 +31,10 @@ func main() {
 	logLevelString := flag.String("debug-level", "info", "Debug level of the application")
 	flag.Parse()
 
+	config := readConfig()
+
+	fmt.Printf("Parsed config: %v\n", config)
+
 	logLevel, err := log.ParseLevel(*logLevelString)
 	if err != nil {
 		fmt.Printf("Failed to parse log level: %v", *logLevelString)
@@ -73,7 +77,7 @@ func main() {
 		drawTimeSheet(*monthPrefix, workingDirectory, callSigns)
 	} else if *sendEmails {
 		log.Trace("Checking if emails should be sent")
-		callSendEmailsLogic(callSigns)
+		callSendEmailsLogic(callSigns, config)
 	}
 }
 
@@ -82,10 +86,10 @@ type CityResponsibilityRecord struct {
 	City string
 }
 
-func callSendEmailsLogic(callsignDB map[string]Member) {
+func callSendEmailsLogic(callsignDB map[string]Member, config *Config) {
 	now := time.Now()
 	if now.Weekday() == time.Monday {
-		notifyNetControl(callsignDB)
+		notifyNetControl(callsignDB, config)
 	}
 	schedule, err := readCityResponsibilitySchedule()
 	if err != nil {
@@ -104,7 +108,7 @@ func equalByDate(a, b time.Time) bool {
 	return a.Year() == b.Year() && a.Month() == b.Month() && a.Day() == b.Day()
 }
 
-func notifyNetControl(callsignDB map[string]Member) error {
+func notifyNetControl(callsignDB map[string]Member, config *Config) error {
 	netcontrolSchedule, err := readNetcontrolSchedule()
 	if err != nil {
 		return err
