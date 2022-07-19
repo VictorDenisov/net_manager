@@ -12,7 +12,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	_ "gopkg.in/gomail.v2"
+	"gopkg.in/gomail.v2"
 )
 
 const (
@@ -123,24 +123,28 @@ func notifyNetControl(callsignDB map[string]Member, config *Config) error {
 		}
 	}
 
+	ncCallsign := strings.ToUpper(upcomingNc.Callsign)
+
 	fmt.Printf("Chosen nc record: %v\n", upcomingNc)
-	fmt.Printf("Sending email to: %v\n", callsignDB[strings.ToUpper(upcomingNc.Callsign)].Email)
+	ncEmail := callsignDB[ncCallsign].Email
+	if ncEmail == "" {
+		return fmt.Errorf("Net control %v has empty email", strings.ToUpper(upcomingNc.Callsign))
+	}
+	fmt.Printf("Sending email to: %v\n", ncEmail)
 
-	/*
-		d := gomail.NewDialer(config.Station.Mail.SmtpHost, config.Station.Mail.Port, config.Station.Mail.Email, config.Station.Mail.Password)
-		if config.Pota.ContactEmail != "" && config.Pota.ContactName != "" {
-			m := gomail.NewMessage()
-			m.SetHeader("From", config.Station.Mail.Email)
-			m.SetHeader("To", config.Pota.ContactEmail)
-			m.SetHeader("Subject", fmt.Sprintf("%v K-%v %s", callSign, parkCode, parkName))
-			m.SetBody("text/plain", fmt.Sprintf("Hello %s,\n\nHere is my log for K-%v on %v.\n\nThanks, Victor.", config.Pota.ContactName, parkCode, date))
-			m.Attach(potaFileName)
+	d := gomail.NewDialer(config.Station.Mail.SmtpHost, config.Station.Mail.Port, config.Station.Mail.Email, config.Station.Mail.Password)
 
-			if err := d.DialAndSend(m); err != nil {
-				panic(err)
-			}
-		}
-	*/
+	m := gomail.NewMessage()
+	m.SetHeader("From", config.Station.Mail.Email)
+	m.SetHeader("To", ncEmail)
+	dateString := upcomingNc.Date.Format("1/2/2006")
+	m.SetHeader("Bcc", config.Station.Mail.Email)
+	m.SetHeader("Subject", fmt.Sprintf("Net control %v", dateString))
+	m.SetBody("text/plain", fmt.Sprintf("Hi %s,\n\nThank you for volunteering. Could you please confirm that you are still comfortable running the net on %v\n\nThanks, Victor.", callsignDB[ncCallsign].Name, dateString))
+
+	if err := d.DialAndSend(m); err != nil {
+		return fmt.Errorf("Failed to send email: %w", err)
+	}
 
 	return nil
 }
