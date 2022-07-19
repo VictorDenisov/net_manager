@@ -36,6 +36,26 @@ func parseConfig(data []byte) (*Config, error) {
 	return config, nil
 }
 
+func openFile(fileName string) (f *os.File, err error) {
+	userHomeDir, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to find user home directory: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Trying config file in the working directory\n")
+		goto workingDir
+	}
+	f, err = os.Open(filepath.Join(userHomeDir, configDir, fileName))
+	if err == nil {
+		return f, nil
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to read config from home dir: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Trying config file in the working directory\n")
+	}
+workingDir:
+	f, err = os.Open(fileName)
+	return f, err
+}
+
 func readConfig() (config *Config) {
 	userHomeDir, err := os.UserHomeDir()
 	var data []byte

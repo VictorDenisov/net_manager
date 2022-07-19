@@ -206,7 +206,7 @@ type Member struct {
 
 func readCallsignDB() (r map[string]Member, err error) {
 	r = make(map[string]Member)
-	f, err := os.Open(callsignDB)
+	f, err := openFile(callsignDB)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open call signdb: %v %w", callsignDB, err)
 	}
