@@ -175,7 +175,7 @@ func readNetcontrolSchedule() ([]NetcontrolScheduleRecord, error) {
 }
 
 func readCityResponsibilitySchedule() (records []CityResponsibilityRecord, err error) {
-	f, err := os.Open(CityResponsiblityScheduleFileName)
+	f, err := openFile(CityResponsiblityScheduleFileName)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open city responsibility schedule: %w", err)
 	}
