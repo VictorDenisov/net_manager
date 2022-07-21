@@ -87,9 +87,15 @@ type CityResponsibilityRecord struct {
 }
 
 func dispatchEmails(callsignDB map[string]Member, config *Config) {
+	netcontrolSchedule, err := readNetcontrolSchedule()
+	if err != nil {
+		fmt.Printf("Failed to parse net control schedule: %v\n", err)
+		os.Exit(1)
+	}
+
 	now := time.Now()
 	if now.Weekday() == time.Sunday {
-		notifyNetControl(callsignDB, config)
+		notifyNetControl(callsignDB, config, netcontrolSchedule)
 	}
 	schedule, err := readCityResponsibilitySchedule()
 	if err != nil {
@@ -108,11 +114,7 @@ func equalByDate(a, b time.Time) bool {
 	return a.Year() == b.Year() && a.Month() == b.Month() && a.Day() == b.Day()
 }
 
-func notifyNetControl(callsignDB map[string]Member, config *Config) error {
-	netcontrolSchedule, err := readNetcontrolSchedule()
-	if err != nil {
-		return err
-	}
+func notifyNetControl(callsignDB map[string]Member, config *Config, netcontrolSchedule []NetcontrolScheduleRecord) error {
 	now := time.Now()
 	inTwoDaysFromNow := now.Add(48 * time.Hour)
 	var upcomingNc NetcontrolScheduleRecord
