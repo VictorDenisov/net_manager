@@ -77,7 +77,7 @@ func main() {
 		drawTimeSheet(*monthPrefix, workingDirectory, callSigns)
 	} else if *sendEmails {
 		log.Trace("Checking if emails should be sent")
-		callSendEmailsLogic(callSigns, config)
+		dispatchEmails(callSigns, config)
 	}
 }
 
@@ -86,7 +86,7 @@ type CityResponsibilityRecord struct {
 	City string
 }
 
-func callSendEmailsLogic(callsignDB map[string]Member, config *Config) {
+func dispatchEmails(callsignDB map[string]Member, config *Config) {
 	now := time.Now()
 	if now.Weekday() == time.Sunday {
 		notifyNetControl(callsignDB, config)
