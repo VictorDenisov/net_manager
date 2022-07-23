@@ -93,7 +93,7 @@ func dispatchEmails(callsignDB map[string]Member, config *Config) {
 		os.Exit(1)
 	}
 
-	callForSignups(ncSchedule)
+	callForSignups(ncSchedule, config)
 
 	now := time.Now()
 	if now.Weekday() == time.Sunday {
@@ -102,7 +102,7 @@ func dispatchEmails(callsignDB map[string]Member, config *Config) {
 
 }
 
-func callForSignups(ncSchedule []NetcontrolScheduleRecord) {
+func callForSignups(ncSchedule []NetcontrolScheduleRecord, config *Config) {
 	citySchedule, err := readCityResponsibilitySchedule()
 	if err != nil {
 		fmt.Printf("Failed to read city responsibility schedule: %v\n", err)
@@ -122,8 +122,36 @@ func callForSignups(ncSchedule []NetcontrolScheduleRecord) {
 	}
 	monthFull, ms := monthSchedule(nextMonthStart, ncSchedule, citySchedule)
 	fmt.Printf("Month schedule: %v\n", ms)
+	fmt.Printf("Month full: %v\n", monthFull)
 	if distance < time.Hour*24*10 && !monthFull {
-		fmt.Printf("Sending call for signups\n")
+		fmt.Printf("Hi,\n")
+		fmt.Printf("Net control positions are open.\n")
+		fmt.Printf("Here is the schedule right now:\n")
+		for _, nc := range ms {
+			fmt.Printf("%v\t%v\t%v\n", nc.Date.Format("1/2/2006"), nc.City, nc.Callsign)
+		}
+
+		d := gomail.NewDialer(config.Station.Mail.SmtpHost, config.Station.Mail.Port, config.Station.Mail.Email, config.Station.Mail.Password)
+
+		m := gomail.NewMessage()
+		m.SetHeader("From", config.Station.Mail.Email)
+		m.SetHeader("To", "Main@SJ-RACES.groups.io")
+		m.SetHeader("Bcc", config.Station.Mail.Email)
+		m.SetHeader("Subject", fmt.Sprintf("[SJ-RACES] SJ RACES Net Control for %v", nextMonthStart.Format("Jan 2006")))
+		bodyText := ""
+		bodyText += "Hi,\n\n"
+		bodyText += "Net control positions are open.\n\n"
+		bodyText += "Here is the schedule right now:\n"
+		for _, nc := range ms {
+			bodyText += fmt.Sprintf("%v\t%v\t%v\n", nc.Date.Format("1/2/2006"), nc.City, nc.Callsign)
+		}
+		m.SetBody("text/plain", bodyText)
+
+		if err := d.DialAndSend(m); err != nil {
+			fmt.Printf("Failed to send email: %w", err)
+			os.Exit(1)
+		}
+
 	}
 
 }
