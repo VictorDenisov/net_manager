@@ -247,7 +247,7 @@ func notifyNetControl(callsignDB map[string]Member, config *Config, netcontrolSc
 }
 
 func readNetcontrolSchedule() ([]NetcontrolScheduleRecord, error) {
-	f, err := os.Open(NetcontrolScheduleFileName)
+	f, err := openFile(NetcontrolScheduleFileName)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open netcontrol schedule: %w", err)
 	}
