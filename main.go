@@ -120,7 +120,9 @@ func callForSignups(ncSchedule []NetcontrolScheduleRecord) {
 		fmt.Printf("Next month city schedule is incomplete. Add more records.\n")
 		os.Exit(1)
 	}
-	if distance < time.Hour*24*15 && monthFull(nextMonthStart, ncSchedule, citySchedule) {
+	monthFull, ms := monthSchedule(nextMonthStart, ncSchedule, citySchedule)
+	fmt.Printf("Month schedule: %v\n", ms)
+	if distance < time.Hour*24*10 && !monthFull {
 		fmt.Printf("Sending call for signups\n")
 	}
 
@@ -131,26 +133,39 @@ func monthCityComplete(monthStart time.Time, citySchedule []CityResponsibilityRe
 	return true
 }
 
-func monthFull(monthStart time.Time, ncSchedule []NetcontrolScheduleRecord, citySchedule []CityResponsibilityRecord) bool {
-	cityMonth := make([]CityResponsibilityRecord, 0)
-	for _, cr := range citySchedule {
-		if equalByMonth(cr.Date, monthStart) {
-			cityMonth = append(cityMonth, cr)
-		}
-	}
+type ScheduleRecord struct {
+	Date     time.Time
+	City     string
+	Callsign string
+}
+
+func monthSchedule(monthStart time.Time, ncSchedule []NetcontrolScheduleRecord, citySchedule []CityResponsibilityRecord) (monthFull bool, schedule []ScheduleRecord) {
 	ncMonth := make([]NetcontrolScheduleRecord, 0)
 	for _, cr := range ncSchedule {
 		if equalByMonth(cr.Date, monthStart) {
 			ncMonth = append(ncMonth, cr)
 		}
 	}
-
-	fmt.Printf("%v\n", cityMonth)
-	fmt.Printf("%v\n", ncMonth)
-	if len(ncMonth) != len(cityMonth) {
-		return false
+	schedule = make([]ScheduleRecord, 0)
+	monthFull = true
+	for _, cr := range citySchedule {
+		if equalByMonth(cr.Date, monthStart) {
+			sr := ScheduleRecord{Date: cr.Date, City: cr.City}
+			dateMatch := false
+			for _, nr := range ncMonth {
+				if equalByDate(cr.Date, nr.Date) {
+					sr.Callsign = nr.Callsign
+					dateMatch = true
+				}
+			}
+			if !dateMatch {
+				monthFull = false
+			}
+			schedule = append(schedule, sr)
+		}
 	}
-	return true
+
+	return monthFull, schedule
 }
 
 type NetcontrolScheduleRecord struct {
