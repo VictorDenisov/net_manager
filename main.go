@@ -116,7 +116,7 @@ func callForSignups(ncSchedule []NetcontrolScheduleRecord) {
 	distance := nextMonthStart.Sub(today)
 	fmt.Printf("Distance %v\n", distance)
 	fmt.Printf("NextMonthStart %v\n", nextMonthStart)
-	if !monthComplete(nextMonthStart, citySchedule) {
+	if !monthCityComplete(nextMonthStart, citySchedule) {
 		fmt.Printf("Next month city schedule is incomplete. Add more records.\n")
 		os.Exit(1)
 	}
@@ -126,7 +126,7 @@ func callForSignups(ncSchedule []NetcontrolScheduleRecord) {
 
 }
 
-func monthComplete(monthStart time.Time, citySchedule []CityResponsibilityRecord) bool {
+func monthCityComplete(monthStart time.Time, citySchedule []CityResponsibilityRecord) bool {
 	return true
 }
 
