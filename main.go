@@ -127,6 +127,7 @@ func callForSignups(ncSchedule []NetcontrolScheduleRecord) {
 }
 
 func monthCityComplete(monthStart time.Time, citySchedule []CityResponsibilityRecord) bool {
+	// TODO check if city responsiblity schedule covers the whole month
 	return true
 }
 
