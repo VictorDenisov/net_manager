@@ -97,7 +97,10 @@ func dispatchEmails(callsignDB map[string]Member, config *Config) {
 
 	now := time.Now()
 	if now.Weekday() == time.Sunday {
-		notifyNetControl(callsignDB, config, ncSchedule)
+		err := notifyNetControl(callsignDB, config, ncSchedule)
+		if err != nil {
+			fmt.Printf("Failed to notify net control: %v\n", err)
+		}
 	}
 
 }
