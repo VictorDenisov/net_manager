@@ -452,8 +452,27 @@ func sortCheckins(callSigns map[string]Member, netLog <-chan string) {
 }
 
 func validMonthPrefixFormat(monthPrefix *string) bool {
-	// TODO improve month prefix validation
-	return monthPrefix != nil
+	fmt.Printf("%v\n", *monthPrefix)
+	if monthPrefix == nil {
+		return false
+	}
+	if len(*monthPrefix) != 4 && len(*monthPrefix) != 7 {
+		return false
+	}
+	for i := 0; i < 4; i++ {
+		if !('0' <= (*monthPrefix)[i] && (*monthPrefix)[i] <= '9') {
+			return false
+		}
+	}
+	if len(*monthPrefix) == 7 {
+		if !('0' <= (*monthPrefix)[5] && (*monthPrefix)[5] <= '9') {
+			return false
+		}
+		if !('0' <= (*monthPrefix)[6] && (*monthPrefix)[6] <= '9') {
+			return false
+		}
+	}
+	return true
 }
 
 func drawTimeSheet(monthPrefix string, workingDir string, callSigns map[string]Member) error {
