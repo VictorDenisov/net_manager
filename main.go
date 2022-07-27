@@ -151,7 +151,7 @@ func callForSignups(ncSchedule []NetcontrolScheduleRecord, config *Config) {
 		m.SetBody("text/plain", bodyText)
 
 		if err := d.DialAndSend(m); err != nil {
-			fmt.Printf("Failed to send email: %w", err)
+			fmt.Printf("Failed to send email: %v", err)
 			os.Exit(1)
 		}
 
