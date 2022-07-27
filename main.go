@@ -139,7 +139,6 @@ func callForSignups(ncSchedule []NetcontrolScheduleRecord, config *Config) {
 		m := gomail.NewMessage()
 		m.SetHeader("From", config.Station.Mail.Email)
 		m.SetHeader("To", "Main@SJ-RACES.groups.io")
-		m.SetHeader("Bcc", config.Station.Mail.Email)
 		m.SetHeader("Subject", fmt.Sprintf("[SJ-RACES] SJ RACES Net Control for %v", nextMonthStart.Format("Jan 2006")))
 		bodyText := ""
 		bodyText += "Hi,\n\n"
