@@ -115,8 +115,14 @@ func callForSignups(ncSchedule []NetcontrolScheduleRecord, config *Config) {
 	fmt.Printf("Parsed city responsibility schedule: %v\n", citySchedule)
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	nextMonthStart := time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, now.Location())
+	var nextMonthStart time.Time
+	if now.Day() < 15 {
+		nextMonthStart = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	} else {
+		nextMonthStart = time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, now.Location())
+	}
 	distance := nextMonthStart.Sub(today)
+
 	fmt.Printf("Distance %v\n", distance)
 	fmt.Printf("NextMonthStart %v\n", nextMonthStart)
 	if !monthCityComplete(nextMonthStart, citySchedule) {
