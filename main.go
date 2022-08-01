@@ -483,8 +483,8 @@ func validMonthPrefixFormat(monthPrefix *string) bool {
 	return true
 }
 
-func drawTimeSheet(monthPrefix string, workingDir string, callSigns map[string]Member) error {
-	s, err := drawTimeSheetString(monthPrefix, workingDir, callSigns)
+func drawTimeSheet(monthPrefix string, logDirectory string, callSigns map[string]Member) error {
+	s, err := drawTimeSheetString(monthPrefix, logDirectory, callSigns)
 	if err != nil {
 		return err
 	}
@@ -492,9 +492,9 @@ func drawTimeSheet(monthPrefix string, workingDir string, callSigns map[string]M
 	return nil
 }
 
-func drawTimeSheetString(monthPrefix string, workingDir string, callSigns map[string]Member) (string, error) {
+func drawTimeSheetString(monthPrefix string, logDirectory string, callSigns map[string]Member) (string, error) {
 	var sb strings.Builder
-	list, err := filepath.Glob(filepath.Join(workingDir, monthPrefix) + "*")
+	list, err := filepath.Glob(filepath.Join(logDirectory, monthPrefix) + "*")
 	if err != nil {
 		return "", err
 	}
