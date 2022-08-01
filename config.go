@@ -12,7 +12,9 @@ import (
 const configDir = ".net-manager"
 
 type Config struct {
-	Station Station `yaml:"station"`
+	Station     Station `yaml:"station"`
+	NetDir      string  `yaml:"net-log-directory"`
+	HospitalDir string  `yaml:"hospital-log-directory"`
 }
 
 type Station struct {
