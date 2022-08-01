@@ -494,7 +494,7 @@ func drawTimeSheet(monthPrefix string, workingDir string, callSigns map[string]M
 
 func drawTimeSheetString(monthPrefix string, workingDir string, callSigns map[string]Member) (string, error) {
 	var sb strings.Builder
-	list, err := filepath.Glob(monthPrefix + "*")
+	list, err := filepath.Glob(filepath.Join(workingDir, monthPrefix) + "*")
 	if err != nil {
 		return "", err
 	}
