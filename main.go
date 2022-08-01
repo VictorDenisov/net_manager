@@ -484,23 +484,33 @@ func validMonthPrefixFormat(monthPrefix *string) bool {
 }
 
 func drawTimeSheet(monthPrefix string, workingDir string, callSigns map[string]Member) error {
-	list, err := filepath.Glob(monthPrefix + "*")
+	s, err := drawTimeSheetString(monthPrefix, workingDir, callSigns)
 	if err != nil {
 		return err
+	}
+	fmt.Printf("%v", s)
+	return nil
+}
+
+func drawTimeSheetString(monthPrefix string, workingDir string, callSigns map[string]Member) (string, error) {
+	var sb strings.Builder
+	list, err := filepath.Glob(monthPrefix + "*")
+	if err != nil {
+		return "", err
 	}
 	var totalHours float64
 	for _, f := range list {
 		checkins, err := readCheckins(f)
 		if err != nil {
-			return err
+			return "", err
 		}
 		totalCount := totalCheckins(callSigns, checkins)
 		hours := float64(totalCount)/3 + 0.5 + 0.25
-		fmt.Printf("%v:\t%d\t%0.3f\t%0.3f\t%0.3f\t%0.3f\n", f, totalCount, hours, 0.5, 0.25, hours)
+		fmt.Fprintf(&sb, "%v:\t%d\t%0.3f\t%0.3f\t%0.3f\t%0.3f\n", f, totalCount, hours, 0.5, 0.25, hours)
 		totalHours += hours
 	}
-	fmt.Printf("Total hours: %0.3f\n", totalHours)
-	return nil
+	fmt.Fprintf(&sb, "Total hours: %0.3f\n", totalHours)
+	return sb.String(), nil
 }
 
 func totalCheckins(callSigns map[string]Member, netLog <-chan string) (r int) {
