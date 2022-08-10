@@ -102,7 +102,48 @@ func dispatchEmails(callsignDB map[string]Member, config *Config) {
 			fmt.Printf("Failed to notify net control: %v\n", err)
 		}
 	}
+	if now.Day() == 1 {
+		log.Trace("Sending time sheet\n")
+		sendReport(config, callsignDB)
+	}
+}
 
+func sendReport(config *Config, callsigns map[string]Member) {
+	now := time.Now()
+	previousMonthTime := time.Date(now.Year(), now.Month()-1, 1, 0, 0, 0, 0, now.Location())
+	monthPrefix := fmt.Sprintf("%d-%02d", previousMonthTime.Year(), previousMonthTime.Month())
+	netString, netHours, err := drawTimeSheetString(monthPrefix, config.NetDir, callsigns)
+	hospitalHours, err := hospitalHoursCount(monthPrefix, config.HospitalDir, callsigns)
+	log.Tracef("Report to be sent: \n%v\n, %v\n", netString, err)
+	log.Tracef("Hospital Net: %0.3f, %v\n", hospitalHours, err)
+	log.Tracef("Total Hours: %0.3f, %v\n", hospitalHours+netHours, err)
+
+	d := gomail.NewDialer(config.Station.Mail.SmtpHost, config.Station.Mail.Port, config.Station.Mail.Email, config.Station.Mail.Password)
+
+	m := gomail.NewMessage()
+	m.SetHeader("From", config.Station.Mail.Email)
+	m.SetHeader("To", config.TimeReport.MainMail)
+	if config.TimeReport.CcMail != "" {
+		m.SetHeader("Cc", config.TimeReport.CcMail)
+	}
+	monthString := previousMonthTime.Format("Jan 2006")
+	m.SetHeader("Bcc", config.Station.Mail.Email)
+	m.SetHeader("Subject", fmt.Sprintf("[SJ-RACES] Net report for %v", monthString))
+	bodyText := ""
+	bodyText += "Hi folks,\n\n"
+	bodyText += fmt.Sprintf("Here is net control statistics for %v:\n\n", monthString)
+	bodyText += netString
+	bodyText += "\n"
+	bodyText += fmt.Sprintf("Hospital Net: %0.3f\n\n", hospitalHours)
+	bodyText += fmt.Sprintf("Total Hours: %0.3f\n", hospitalHours+netHours)
+	bodyText += fmt.Sprintf("\n\n%v", config.Station.Signature)
+
+	m.SetBody("text/plain", bodyText)
+
+	if err := d.DialAndSend(m); err != nil {
+		log.Errorf("Failed to send email: %v", err)
+		os.Exit(1)
+	}
 }
 
 func callForSignups(ncSchedule []NetcontrolScheduleRecord, config *Config) {
@@ -484,33 +525,57 @@ func validMonthPrefixFormat(monthPrefix *string) bool {
 }
 
 func drawTimeSheet(monthPrefix string, logDirectory string, callSigns map[string]Member) error {
-	s, err := drawTimeSheetString(monthPrefix, logDirectory, callSigns)
+	s, hours, err := drawTimeSheetString(monthPrefix, logDirectory, callSigns)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%v", s)
+	fmt.Printf("%v\n", s)
+	fmt.Printf("Hours: %v\n", hours)
 	return nil
 }
 
-func drawTimeSheetString(monthPrefix string, logDirectory string, callSigns map[string]Member) (string, error) {
+func drawTimeSheetString(monthPrefix string, logDirectory string, callSigns map[string]Member) (string, float64, error) {
 	var sb strings.Builder
 	list, err := filepath.Glob(filepath.Join(logDirectory, monthPrefix) + "*")
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	var totalHours float64
 	for _, f := range list {
 		checkins, err := readCheckins(f)
 		if err != nil {
-			return "", err
+			return "", 0, err
 		}
 		totalCount := totalCheckins(callSigns, checkins)
 		hours := float64(totalCount)/3 + 0.5 + 0.25
-		fmt.Fprintf(&sb, "%v:\t%d\t%0.3f\t%0.3f\t%0.3f\t%0.3f\n", f, totalCount, hours, 0.5, 0.25, hours)
+		fmt.Fprintf(&sb, "%v:\t%d\t%0.3f\t%0.3f\t%0.3f\t%0.3f\n", filepath.Base(f), totalCount, hours, 0.5, 0.25, hours)
 		totalHours += hours
 	}
 	fmt.Fprintf(&sb, "Total hours: %0.3f\n", totalHours)
-	return sb.String(), nil
+	return sb.String(), totalHours, nil
+}
+
+func hospitalHoursCount(monthPrefix string, logDirectory string, callSigns map[string]Member) (float64, error) {
+	var totalHours float64
+	list, err := filepath.Glob(filepath.Join(logDirectory, monthPrefix) + "*")
+	if err != nil {
+		return 0, err
+	}
+	log.Tracef("Doing hospital count")
+	for i, f := range list {
+		log.Tracef("Processing file: %v", f)
+		if i > 0 {
+			log.Errorf("More than one hospital net log")
+			break
+		}
+		checkins, err := readCheckins(f)
+		if err != nil {
+			return 0, err
+		}
+		totalCount := totalCheckins(callSigns, checkins)
+		totalHours = float64(totalCount)*0.5 + 0.25
+	}
+	return totalHours, nil
 }
 
 func totalCheckins(callSigns map[string]Member, netLog <-chan string) (r int) {

@@ -15,11 +15,16 @@ type Config struct {
 	Station     Station `yaml:"station"`
 	NetDir      string  `yaml:"net-log-directory"`
 	HospitalDir string  `yaml:"hospital-log-directory"`
+	TimeReport  struct {
+		MainMail string `yaml:"main-mail"`
+		CcMail   string `yaml:"cc-mail"`
+	} `yaml:"time-report"`
 }
 
 type Station struct {
-	Call string `yaml:"call"`
-	Mail Mail   `yaml:"mail"`
+	Call      string `yaml:"call"`
+	Mail      Mail   `yaml:"mail"`
+	Signature string `yaml:"signature"`
 }
 
 type Mail struct {
