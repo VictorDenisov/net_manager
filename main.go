@@ -110,6 +110,42 @@ func dispatchEmails(callsignDB map[string]Member, config *Config) {
 		log.Trace("Sending time sheet\n")
 		sendReport(config, callsignDB)
 	}
+	if now.Weekday() == time.Wednesday && weekdayNumber(now) == 3 {
+		sendHospitalAnnouncement(config)
+	}
+}
+
+func sendHospitalAnnouncement(config *Config) {
+	d := gomail.NewDialer(config.Station.Mail.SmtpHost, config.Station.Mail.Port, config.Station.Mail.Email, config.Station.Mail.Password)
+
+	m := gomail.NewMessage()
+	m.SetHeader("From", config.Station.Mail.Email)
+
+	m.SetHeader("To", "Main@SJ-RACES.groups.io")
+	m.SetHeader("Bcc", config.Station.Mail.Email)
+
+	m.SetHeader("Subject", fmt.Sprintf("[SJ-RACES] Hospital Net next Wednesday, 7pm"))
+	bodyText := ""
+	bodyText += "Hi folks,\n\n"
+	bodyText += "Hospital net is next week.\n"
+	bodyText += "Please sign up for one of the hospitals.\n"
+	bodyText += "\n"
+	bodyText += "Good Samaritan Hospital       Available!\n"
+	bodyText += "O'Connor Hospital             Available!\n"
+	bodyText += "Regional San Jose Hospital    Available!\n"
+	bodyText += "Valley Medical Center         Available!\n"
+	bodyText += "Kaiser San Jose Hospital      Available!\n"
+	bodyText += "\n"
+	bodyText += "Net control is Regional San Jose (RSJ)\n"
+	bodyText += "\n"
+	bodyText += fmt.Sprintf("\n\n%v", config.Station.Signature)
+
+	m.SetBody("text/plain", bodyText)
+
+	if err := d.DialAndSend(m); err != nil {
+		log.Errorf("Failed to send email: %v", err)
+		os.Exit(1)
+	}
 }
 
 func sendReport(config *Config, callsigns map[string]Member) {
