@@ -49,9 +49,9 @@ func main() {
 	log.Tracef("Working directory: %v", workingDirectory)
 
 	log.Tracef("Parsed command line args:")
-	log.Tracef("Count: ", *count)
-	log.Tracef("Sort: ", *sort)
-	log.Tracef("Time Sheet: ", timeSheet)
+	log.Tracef("Count: %v", *count)
+	log.Tracef("Sort: %v", *sort)
+	log.Tracef("Time Sheet: %v", timeSheet)
 
 	callSigns, err := readCallsignDB()
 	if err != nil {
@@ -84,6 +84,10 @@ func main() {
 type CityResponsibilityRecord struct {
 	Date time.Time
 	City string
+}
+
+func weekdayNumber(t time.Time) int {
+	return (t.Day()-1)/7 + 1
 }
 
 func dispatchEmails(callsignDB map[string]Member, config *Config) {
