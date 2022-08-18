@@ -21,6 +21,19 @@ const (
 	NetcontrolScheduleFileName        = "netcontrol_schedule.txt"
 )
 
+type HospitalDescriptor struct {
+	FullName string
+	Acronym  string
+}
+
+var Hospitals []HospitalDescriptor = []HospitalDescriptor{
+	HospitalDescriptor{"Good Samaritan Hospital", "GSH"},
+	HospitalDescriptor{"O'Connor Hospital", "OCH"},
+	HospitalDescriptor{"Regional San Jose Hospital", "RSJ"},
+	HospitalDescriptor{"Valley Medical Center", "VMC"},
+	HospitalDescriptor{"Kaiser San Jose Medical Center", "KSJ"},
+}
+
 func main() {
 	count := flag.Bool("count", false, "Count checkin numbers")
 	sort := flag.Bool("sort", false, "Sort and print member checkins")
@@ -120,9 +133,8 @@ func sendHospitalAnnouncement(config *Config) {
 
 	m := gomail.NewMessage()
 	m.SetHeader("From", config.Station.Mail.Email)
-
-	m.SetHeader("To", "Main@SJ-RACES.groups.io")
-	m.SetHeader("Bcc", config.Station.Mail.Email)
+	//m.SetHeader("To", "Main@SJ-RACES.groups.io")
+	m.SetHeader("To", "denisovenator@gmail.com")
 
 	m.SetHeader("Subject", fmt.Sprintf("[SJ-RACES] Hospital Net next Wednesday, 7pm"))
 	bodyText := ""
@@ -130,11 +142,11 @@ func sendHospitalAnnouncement(config *Config) {
 	bodyText += "Hospital net is next week.\n"
 	bodyText += "Please sign up for one of the hospitals.\n"
 	bodyText += "\n"
-	bodyText += "Good Samaritan Hospital       Available!\n"
-	bodyText += "O'Connor Hospital             Available!\n"
-	bodyText += "Regional San Jose Hospital    Available!\n"
-	bodyText += "Valley Medical Center         Available!\n"
-	bodyText += "Kaiser San Jose Hospital      Available!\n"
+
+	longestName := longestHospitalName()
+	for _, h := range Hospitals {
+		bodyText += h.FullName + spacer(longestName-len(h.FullName)+10) + "Available!\n"
+	}
 	bodyText += "\n"
 	bodyText += "Net control is Regional San Jose (RSJ)\n"
 	bodyText += "\n"
@@ -146,6 +158,20 @@ func sendHospitalAnnouncement(config *Config) {
 		log.Errorf("Failed to send email: %v", err)
 		os.Exit(1)
 	}
+}
+
+func spacer(n int) string {
+	s := "                                               "
+	return s[0:n]
+}
+
+func longestHospitalName() (l int) {
+	for _, h := range Hospitals {
+		if len(h.FullName) > l {
+			l = len(h.FullName)
+		}
+	}
+	return
 }
 
 func sendReport(config *Config, callsigns map[string]Member) {
