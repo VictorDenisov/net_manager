@@ -12,9 +12,27 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/gomail.v2"
 )
 
-const CityResponsiblityScheduleFileName = "city_responsibility_schedule.txt"
+const (
+	CityResponsiblityScheduleFileName = "city_responsibility_schedule.txt"
+	callsignDB                        = "ContactListByName.csv"
+	NetcontrolScheduleFileName        = "netcontrol_schedule.txt"
+)
+
+type HospitalDescriptor struct {
+	FullName string
+	Acronym  string
+}
+
+var Hospitals []HospitalDescriptor = []HospitalDescriptor{
+	HospitalDescriptor{"Good Samaritan Hospital", "GSH"},
+	HospitalDescriptor{"O'Connor Hospital", "OCH"},
+	HospitalDescriptor{"Regional San Jose Hospital", "RSJ"},
+	HospitalDescriptor{"Valley Medical Center", "VMC"},
+	HospitalDescriptor{"Kaiser San Jose Medical Center", "KSJ"},
+}
 
 func main() {
 	count := flag.Bool("count", false, "Count checkin numbers")
@@ -25,6 +43,10 @@ func main() {
 	netLogFile := flag.String("net-log", "net_log.txt", "File with net log")
 	logLevelString := flag.String("debug-level", "info", "Debug level of the application")
 	flag.Parse()
+
+	config := readConfig()
+
+	fmt.Printf("Parsed config: %v\n", config)
 
 	logLevel, err := log.ParseLevel(*logLevelString)
 	if err != nil {
@@ -40,9 +62,9 @@ func main() {
 	log.Tracef("Working directory: %v", workingDirectory)
 
 	log.Tracef("Parsed command line args:")
-	log.Tracef("Count: ", *count)
-	log.Tracef("Sort: ", *sort)
-	log.Tracef("Time Sheet: ", timeSheet)
+	log.Tracef("Count: %v", *count)
+	log.Tracef("Sort: %v", *sort)
+	log.Tracef("Time Sheet: %v", timeSheet)
 
 	callSigns, err := readCallsignDB()
 	if err != nil {
@@ -68,8 +90,7 @@ func main() {
 		drawTimeSheet(*monthPrefix, workingDirectory, callSigns)
 	} else if *sendEmails {
 		log.Trace("Checking if emails should be sent")
-		log.Trace("Sending emails")
-		callSendEmailsLogic()
+		dispatchEmails(callSigns, config)
 	}
 }
 
@@ -78,17 +99,346 @@ type CityResponsibilityRecord struct {
 	City string
 }
 
-func callSendEmailsLogic() {
-	schedule, err := readCityResponsibilitySchedule()
+func weekdayNumber(t time.Time) int {
+	return (t.Day()-1)/7 + 1
+}
+
+func dispatchEmails(callsignDB map[string]Member, config *Config) {
+	ncSchedule, err := readNetcontrolSchedule()
+	if err != nil {
+		fmt.Printf("Failed to parse net control schedule: %v\n", err)
+		os.Exit(1)
+	}
+
+	callForSignups(ncSchedule, config)
+
+	now := time.Now()
+	if now.Weekday() == time.Sunday {
+		err := notifyNetControl(callsignDB, config, ncSchedule)
+		if err != nil {
+			fmt.Printf("Failed to notify net control: %v\n", err)
+		}
+	}
+	if now.Day() == 1 {
+		log.Trace("Sending time sheet\n")
+		sendReport(config, callsignDB)
+	}
+	if weekdayNumber(upcomingWednesday(now)) == 4 {
+		monthPrefix := fmt.Sprintf("%d-%02d", now.Year(), now.Month())
+		sendHospitalAnnouncement(config, callsignDB, monthPrefix)
+	}
+}
+
+func upcomingWednesday(t time.Time) time.Time {
+	daysToWednesday := int(time.Wednesday - t.Weekday())
+	if daysToWednesday <= 0 {
+		daysToWednesday += 7
+	}
+	return time.Date(t.Year(), t.Month(), t.Day()+daysToWednesday, 0, 0, 0, 0, t.Location())
+}
+
+func sendHospitalAnnouncement(config *Config, callsignDB map[string]Member, monthPrefix string) {
+	d := gomail.NewDialer(config.Station.Mail.SmtpHost, config.Station.Mail.Port, config.Station.Mail.Email, config.Station.Mail.Password)
+
+	m := gomail.NewMessage()
+	m.SetHeader("From", config.Station.Mail.Email)
+	m.SetHeader("To", "Main@SJ-RACES.groups.io")
+
+	m.SetHeader("Subject", fmt.Sprintf("[SJ-RACES] Hospital Net next Wednesday, 7pm"))
+	bodyText := ""
+	bodyText += "Hi folks,\n\n"
+	bodyText += "Hospital net is next week.\n"
+	bodyText += "Please sign up for one of the hospitals.\n"
+	bodyText += "\n"
+
+	schedule, err := readHospitalSchedule(monthPrefix, config.HospitalDir, callsignDB)
+
+	if err != nil {
+		log.Errorf("Failed to send email: %v", err)
+		os.Exit(1)
+	}
+
+	longestName := longestHospitalName()
+	for _, h := range Hospitals {
+		bodyText += h.FullName + spacer(longestName-len(h.FullName)+10)
+		if s, ok := schedule[h.Acronym]; ok {
+			bodyText += s.Callsign + "\n"
+		} else {
+			bodyText += "Available!\n"
+		}
+	}
+	bodyText += "\n"
+	bodyText += "Net control is Regional San Jose (RSJ)\n"
+	bodyText += "\n"
+	bodyText += fmt.Sprintf("\n\n%v", config.Station.Signature)
+
+	m.SetBody("text/plain", bodyText)
+
+	if err := d.DialAndSend(m); err != nil {
+		log.Errorf("Failed to send email: %v", err)
+		os.Exit(1)
+	}
+}
+
+func spacer(n int) string {
+	s := "                                               "
+	return s[0:n]
+}
+
+func longestHospitalName() (l int) {
+	for _, h := range Hospitals {
+		if len(h.FullName) > l {
+			l = len(h.FullName)
+		}
+	}
+	return
+}
+
+func readHospitalSchedule(monthPrefix, logDirectory string, callsignDB map[string]Member) (res map[string]Member, err error) {
+	res = make(map[string]Member)
+	list, err := filepath.Glob(filepath.Join(logDirectory, monthPrefix) + "*")
+	if err != nil {
+		return nil, err
+	}
+	for i, f := range list {
+		log.Tracef("Processing file: %v", f)
+		if i > 0 {
+			log.Errorf("More than one hospital net log for one month")
+			break
+		}
+		checkins, err := readCheckins(f)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to read hospital log: %w", err)
+		}
+		for _, h := range Hospitals {
+			if c, ok := <-checkins; ok {
+				fmt.Printf("value from hospital log: %v\n", c)
+				if c != "" {
+					res[h.Acronym] = callsignDB[c]
+				}
+			} else {
+				fmt.Printf("No value from hospital log\n")
+				break
+			}
+		}
+	}
+	return
+}
+
+func sendReport(config *Config, callsigns map[string]Member) {
+	now := time.Now()
+	previousMonthTime := time.Date(now.Year(), now.Month()-1, 1, 0, 0, 0, 0, now.Location())
+	monthPrefix := fmt.Sprintf("%d-%02d", previousMonthTime.Year(), previousMonthTime.Month())
+	netString, netHours, err := drawTimeSheetString(monthPrefix, config.NetDir, callsigns)
+	hospitalHours, err := hospitalHoursCount(monthPrefix, config.HospitalDir, callsigns)
+	log.Tracef("Report to be sent: \n%v\n, %v\n", netString, err)
+	log.Tracef("Hospital Net: %0.3f, %v\n", hospitalHours, err)
+	log.Tracef("Total Hours: %0.3f, %v\n", hospitalHours+netHours, err)
+
+	d := gomail.NewDialer(config.Station.Mail.SmtpHost, config.Station.Mail.Port, config.Station.Mail.Email, config.Station.Mail.Password)
+
+	m := gomail.NewMessage()
+	m.SetHeader("From", config.Station.Mail.Email)
+	m.SetHeader("To", config.TimeReport.MainMail)
+	if config.TimeReport.CcMail != "" {
+		m.SetHeader("Cc", config.TimeReport.CcMail)
+	}
+	monthString := previousMonthTime.Format("Jan 2006")
+	m.SetHeader("Bcc", config.Station.Mail.Email)
+	m.SetHeader("Subject", fmt.Sprintf("[SJ-RACES] Net report for %v", monthString))
+	bodyText := ""
+	bodyText += "Hi folks,\n\n"
+	bodyText += fmt.Sprintf("Here is net control statistics for %v:\n\n", monthString)
+	bodyText += netString
+	bodyText += "\n"
+	bodyText += fmt.Sprintf("Hospital Net: %0.3f\n\n", hospitalHours)
+	bodyText += fmt.Sprintf("Total Hours: %0.3f\n", hospitalHours+netHours)
+	bodyText += fmt.Sprintf("\n\n%v", config.Station.Signature)
+
+	m.SetBody("text/plain", bodyText)
+
+	if err := d.DialAndSend(m); err != nil {
+		log.Errorf("Failed to send email: %v", err)
+		os.Exit(1)
+	}
+}
+
+func callForSignups(ncSchedule []NetcontrolScheduleRecord, config *Config) {
+	citySchedule, err := readCityResponsibilitySchedule()
 	if err != nil {
 		fmt.Printf("Failed to read city responsibility schedule: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Parsed city responsibility schedule: %v\n", schedule)
+
+	fmt.Printf("Parsed city responsibility schedule: %v\n", citySchedule)
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	var nextMonthStart time.Time
+	if now.Day() < 15 {
+		nextMonthStart = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	} else {
+		nextMonthStart = time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, now.Location())
+	}
+	distance := nextMonthStart.Sub(today)
+
+	fmt.Printf("Distance %v\n", distance)
+	fmt.Printf("NextMonthStart %v\n", nextMonthStart)
+	if !monthCityComplete(nextMonthStart, citySchedule) {
+		fmt.Printf("Next month city schedule is incomplete. Add more records.\n")
+		os.Exit(1)
+	}
+	monthFull, ms := monthSchedule(nextMonthStart, ncSchedule, citySchedule)
+	fmt.Printf("Month schedule: %v\n", ms)
+	fmt.Printf("Month full: %v\n", monthFull)
+	if distance < time.Hour*24*10 && !monthFull {
+		fmt.Printf("Hi,\n")
+		fmt.Printf("Net control positions are open.\n")
+		fmt.Printf("Here is the schedule right now:\n")
+		for _, nc := range ms {
+			fmt.Printf("%v\t%v\t%v\n", nc.Date.Format("1/2/2006"), nc.City, nc.Callsign)
+		}
+
+		d := gomail.NewDialer(config.Station.Mail.SmtpHost, config.Station.Mail.Port, config.Station.Mail.Email, config.Station.Mail.Password)
+
+		m := gomail.NewMessage()
+		m.SetHeader("From", config.Station.Mail.Email)
+		m.SetHeader("To", "Main@SJ-RACES.groups.io")
+		m.SetHeader("Subject", fmt.Sprintf("[SJ-RACES] SJ RACES Net Control for %v", nextMonthStart.Format("Jan 2006")))
+		bodyText := ""
+		bodyText += "Hi,\n\n"
+		bodyText += "Net control positions are open.\n\n"
+		bodyText += "Here is the schedule right now:\n"
+		for _, nc := range ms {
+			bodyText += fmt.Sprintf("%v\t%v\t%v\n", nc.Date.Format("1/2/2006"), nc.City, nc.Callsign)
+		}
+		m.SetBody("text/plain", bodyText)
+
+		if err := d.DialAndSend(m); err != nil {
+			fmt.Printf("Failed to send email: %v", err)
+			os.Exit(1)
+		}
+
+	}
+
+}
+
+func monthCityComplete(monthStart time.Time, citySchedule []CityResponsibilityRecord) bool {
+	// TODO check if city responsiblity schedule covers the whole month
+	return true
+}
+
+type ScheduleRecord struct {
+	Date     time.Time
+	City     string
+	Callsign string
+}
+
+func monthSchedule(monthStart time.Time, ncSchedule []NetcontrolScheduleRecord, citySchedule []CityResponsibilityRecord) (monthFull bool, schedule []ScheduleRecord) {
+	ncMonth := make([]NetcontrolScheduleRecord, 0)
+	for _, cr := range ncSchedule {
+		if equalByMonth(cr.Date, monthStart) {
+			ncMonth = append(ncMonth, cr)
+		}
+	}
+	schedule = make([]ScheduleRecord, 0)
+	monthFull = true
+	for _, cr := range citySchedule {
+		if equalByMonth(cr.Date, monthStart) {
+			sr := ScheduleRecord{Date: cr.Date, City: cr.City}
+			dateMatch := false
+			for _, nr := range ncMonth {
+				if equalByDate(cr.Date, nr.Date) {
+					sr.Callsign = nr.Callsign
+					dateMatch = true
+				}
+			}
+			if !dateMatch {
+				monthFull = false
+			}
+			schedule = append(schedule, sr)
+		}
+	}
+
+	return monthFull, schedule
+}
+
+type NetcontrolScheduleRecord struct {
+	Date     time.Time
+	Callsign string
+}
+
+func equalByMonth(a, b time.Time) bool {
+	return a.Year() == b.Year() && a.Month() == b.Month()
+}
+
+func equalByDate(a, b time.Time) bool {
+	return a.Year() == b.Year() && a.Month() == b.Month() && a.Day() == b.Day()
+}
+
+func notifyNetControl(callsignDB map[string]Member, config *Config, netcontrolSchedule []NetcontrolScheduleRecord) error {
+	now := time.Now()
+	inTwoDaysFromNow := now.Add(48 * time.Hour)
+	var upcomingNc NetcontrolScheduleRecord
+	for _, ncRecord := range netcontrolSchedule {
+		if equalByDate(inTwoDaysFromNow, ncRecord.Date) {
+			upcomingNc = ncRecord
+			break
+		}
+	}
+
+	ncCallsign := strings.ToUpper(upcomingNc.Callsign)
+
+	fmt.Printf("Chosen nc record: %v\n", upcomingNc)
+	ncEmail := callsignDB[ncCallsign].Email
+	if ncEmail == "" {
+		return fmt.Errorf("Net control %v has empty email", strings.ToUpper(upcomingNc.Callsign))
+	}
+	fmt.Printf("Sending email to: %v\n", ncEmail)
+
+	d := gomail.NewDialer(config.Station.Mail.SmtpHost, config.Station.Mail.Port, config.Station.Mail.Email, config.Station.Mail.Password)
+
+	m := gomail.NewMessage()
+	m.SetHeader("From", config.Station.Mail.Email)
+	m.SetHeader("To", ncEmail)
+	dateString := upcomingNc.Date.Format("1/2/2006")
+	m.SetHeader("Bcc", config.Station.Mail.Email)
+	m.SetHeader("Subject", fmt.Sprintf("Net control %v", dateString))
+	m.SetBody("text/plain", fmt.Sprintf("Hi %s,\n\nThank you for volunteering. Could you please confirm that you are still comfortable running the net on %v\n\nThanks, Victor.", callsignDB[ncCallsign].Name, dateString))
+
+	if err := d.DialAndSend(m); err != nil {
+		return fmt.Errorf("Failed to send email: %w", err)
+	}
+
+	return nil
+}
+
+func readNetcontrolSchedule() ([]NetcontrolScheduleRecord, error) {
+	f, err := openFile(NetcontrolScheduleFileName)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to open netcontrol schedule: %w", err)
+	}
+	defer f.Close()
+
+	records := make([]NetcontrolScheduleRecord, 0)
+	lineReader := bufio.NewReader(f)
+	for {
+		line, _, err := lineReader.ReadLine()
+		if err != nil {
+			break
+		}
+		tokens := bytes.Split(line, []byte("\t"))
+		date, err := time.Parse("1/2/2006", string(bytes.TrimSpace(tokens[0])))
+		if err != nil {
+			return nil, fmt.Errorf("Failed to parse netcontrol schedule: %w", err)
+		}
+		callsign := string(bytes.TrimSpace(tokens[1]))
+		records = append(records, NetcontrolScheduleRecord{date, callsign})
+	}
+	return records, nil
 }
 
 func readCityResponsibilitySchedule() (records []CityResponsibilityRecord, err error) {
-	f, err := os.Open(CityResponsiblityScheduleFileName)
+	f, err := openFile(CityResponsiblityScheduleFileName)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open city responsibility schedule: %w", err)
 	}
@@ -119,8 +469,7 @@ type Member struct {
 
 func readCallsignDB() (r map[string]Member, err error) {
 	r = make(map[string]Member)
-	const callsignDB = "ContactListByName.csv"
-	f, err := os.Open(callsignDB)
+	f, err := openFile(callsignDB)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open call signdb: %v %w", callsignDB, err)
 	}
@@ -147,14 +496,17 @@ func readCheckins(netLog string) (r chan string, err error) {
 		return nil, err
 	}
 	lineReader := bufio.NewReader(f)
+	log.Tracef("Openned line reader. Starting channel.")
 	go func() {
 		defer f.Close()
 		defer close(r)
 		for {
 			line, _, err := lineReader.ReadLine()
 			if err != nil {
+				log.Tracef("Error while reading line: %v", err)
 				break
 			}
+			log.Tracef("Read checkin line: %v", line)
 			s := strings.ToUpper(string(line))
 			r <- strings.TrimSpace(s)
 		}
@@ -269,28 +621,81 @@ func sortCheckins(callSigns map[string]Member, netLog <-chan string) {
 }
 
 func validMonthPrefixFormat(monthPrefix *string) bool {
-	// TODO improve month prefix validation
-	return monthPrefix != nil
+	fmt.Printf("%v\n", *monthPrefix)
+	if monthPrefix == nil {
+		return false
+	}
+	if len(*monthPrefix) != 4 && len(*monthPrefix) != 7 {
+		return false
+	}
+	for i := 0; i < 4; i++ {
+		if !('0' <= (*monthPrefix)[i] && (*monthPrefix)[i] <= '9') {
+			return false
+		}
+	}
+	if len(*monthPrefix) == 7 {
+		if !('0' <= (*monthPrefix)[5] && (*monthPrefix)[5] <= '9') {
+			return false
+		}
+		if !('0' <= (*monthPrefix)[6] && (*monthPrefix)[6] <= '9') {
+			return false
+		}
+	}
+	return true
 }
 
-func drawTimeSheet(monthPrefix string, workingDir string, callSigns map[string]Member) error {
-	list, err := filepath.Glob(monthPrefix + "*")
+func drawTimeSheet(monthPrefix string, logDirectory string, callSigns map[string]Member) error {
+	s, hours, err := drawTimeSheetString(monthPrefix, logDirectory, callSigns)
 	if err != nil {
 		return err
+	}
+	fmt.Printf("%v\n", s)
+	fmt.Printf("Hours: %v\n", hours)
+	return nil
+}
+
+func drawTimeSheetString(monthPrefix string, logDirectory string, callSigns map[string]Member) (string, float64, error) {
+	var sb strings.Builder
+	list, err := filepath.Glob(filepath.Join(logDirectory, monthPrefix) + "*")
+	if err != nil {
+		return "", 0, err
 	}
 	var totalHours float64
 	for _, f := range list {
 		checkins, err := readCheckins(f)
 		if err != nil {
-			return err
+			return "", 0, err
 		}
 		totalCount := totalCheckins(callSigns, checkins)
 		hours := float64(totalCount)/3 + 0.5 + 0.25
-		fmt.Printf("%v:\t%d\t%0.3f\t%0.3f\t%0.3f\t%0.3f\n", f, totalCount, hours, 0.5, 0.25, hours)
+		fmt.Fprintf(&sb, "%v:\t%d\t%0.3f\t%0.3f\t%0.3f\t%0.3f\n", filepath.Base(f), totalCount, hours, 0.5, 0.25, hours)
 		totalHours += hours
 	}
-	fmt.Printf("Total hours: %0.3f\n", totalHours)
-	return nil
+	fmt.Fprintf(&sb, "Total hours: %0.3f\n", totalHours)
+	return sb.String(), totalHours, nil
+}
+
+func hospitalHoursCount(monthPrefix string, logDirectory string, callSigns map[string]Member) (float64, error) {
+	var totalHours float64
+	list, err := filepath.Glob(filepath.Join(logDirectory, monthPrefix) + "*")
+	if err != nil {
+		return 0, err
+	}
+	log.Tracef("Doing hospital count")
+	for i, f := range list {
+		log.Tracef("Processing file: %v", f)
+		if i > 0 {
+			log.Errorf("More than one hospital net log")
+			break
+		}
+		checkins, err := readCheckins(f)
+		if err != nil {
+			return 0, err
+		}
+		totalCount := totalCheckins(callSigns, checkins)
+		totalHours = float64(totalCount)*0.5 + 0.25
+	}
+	return totalHours, nil
 }
 
 func totalCheckins(callSigns map[string]Member, netLog <-chan string) (r int) {
