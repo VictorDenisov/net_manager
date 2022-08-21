@@ -123,18 +123,26 @@ func dispatchEmails(callsignDB map[string]Member, config *Config) {
 		log.Trace("Sending time sheet\n")
 		sendReport(config, callsignDB)
 	}
-	if now.Weekday() == time.Wednesday && weekdayNumber(now) == 3 {
-		sendHospitalAnnouncement(config)
+	if weekdayNumber(upcomingWednesday(now)) == 4 {
+		monthPrefix := fmt.Sprintf("%d-%02d", now.Year(), now.Month())
+		sendHospitalAnnouncement(config, callsignDB, monthPrefix)
 	}
 }
 
-func sendHospitalAnnouncement(config *Config) {
+func upcomingWednesday(t time.Time) time.Time {
+	daysToWednesday := int(time.Wednesday - t.Weekday())
+	if daysToWednesday <= 0 {
+		daysToWednesday += 7
+	}
+	return time.Date(t.Year(), t.Month(), t.Day()+daysToWednesday, 0, 0, 0, 0, t.Location())
+}
+
+func sendHospitalAnnouncement(config *Config, callsignDB map[string]Member, monthPrefix string) {
 	d := gomail.NewDialer(config.Station.Mail.SmtpHost, config.Station.Mail.Port, config.Station.Mail.Email, config.Station.Mail.Password)
 
 	m := gomail.NewMessage()
 	m.SetHeader("From", config.Station.Mail.Email)
-	//m.SetHeader("To", "Main@SJ-RACES.groups.io")
-	m.SetHeader("To", "denisovenator@gmail.com")
+	m.SetHeader("To", "Main@SJ-RACES.groups.io")
 
 	m.SetHeader("Subject", fmt.Sprintf("[SJ-RACES] Hospital Net next Wednesday, 7pm"))
 	bodyText := ""
@@ -143,9 +151,21 @@ func sendHospitalAnnouncement(config *Config) {
 	bodyText += "Please sign up for one of the hospitals.\n"
 	bodyText += "\n"
 
+	schedule, err := readHospitalSchedule(monthPrefix, config.HospitalDir, callsignDB)
+
+	if err != nil {
+		log.Errorf("Failed to send email: %v", err)
+		os.Exit(1)
+	}
+
 	longestName := longestHospitalName()
 	for _, h := range Hospitals {
-		bodyText += h.FullName + spacer(longestName-len(h.FullName)+10) + "Available!\n"
+		bodyText += h.FullName + spacer(longestName-len(h.FullName)+10)
+		if s, ok := schedule[h.Acronym]; ok {
+			bodyText += s.Callsign + "\n"
+		} else {
+			bodyText += "Available!\n"
+		}
 	}
 	bodyText += "\n"
 	bodyText += "Net control is Regional San Jose (RSJ)\n"
@@ -169,6 +189,37 @@ func longestHospitalName() (l int) {
 	for _, h := range Hospitals {
 		if len(h.FullName) > l {
 			l = len(h.FullName)
+		}
+	}
+	return
+}
+
+func readHospitalSchedule(monthPrefix, logDirectory string, callsignDB map[string]Member) (res map[string]Member, err error) {
+	res = make(map[string]Member)
+	list, err := filepath.Glob(filepath.Join(logDirectory, monthPrefix) + "*")
+	if err != nil {
+		return nil, err
+	}
+	for i, f := range list {
+		log.Tracef("Processing file: %v", f)
+		if i > 0 {
+			log.Errorf("More than one hospital net log for one month")
+			break
+		}
+		checkins, err := readCheckins(f)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to read hospital log: %w", err)
+		}
+		for _, h := range Hospitals {
+			if c, ok := <-checkins; ok {
+				fmt.Printf("value from hospital log: %v\n", c)
+				if c != "" {
+					res[h.Acronym] = callsignDB[c]
+				}
+			} else {
+				fmt.Printf("No value from hospital log\n")
+				break
+			}
 		}
 	}
 	return
@@ -445,14 +496,17 @@ func readCheckins(netLog string) (r chan string, err error) {
 		return nil, err
 	}
 	lineReader := bufio.NewReader(f)
+	log.Tracef("Openned line reader. Starting channel.")
 	go func() {
 		defer f.Close()
 		defer close(r)
 		for {
 			line, _, err := lineReader.ReadLine()
 			if err != nil {
+				log.Tracef("Error while reading line: %v", err)
 				break
 			}
+			log.Tracef("Read checkin line: %v", line)
 			s := strings.ToUpper(string(line))
 			r <- strings.TrimSpace(s)
 		}
