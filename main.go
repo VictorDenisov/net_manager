@@ -149,6 +149,7 @@ func sendHospitalAnnouncement(config *Config, callsignDB map[string]Member, mont
 	bodyText += "Hi folks,\n\n"
 	bodyText += "Hospital net is next week.\n"
 	bodyText += "Please sign up for one of the hospitals.\n"
+	bodyText += "In order to sign up you need to reply to this email with your callsign and the hospital of choice.\n"
 	bodyText += "\n"
 
 	schedule, err := readHospitalSchedule(monthPrefix, config.HospitalDir, callsignDB)
