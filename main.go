@@ -312,6 +312,7 @@ func callForSignups(ncSchedule []NetcontrolScheduleRecord, config *Config) {
 		for _, nc := range ms {
 			bodyText += fmt.Sprintf("%v\t%v\t%v\n", nc.Date.Format("1/2/2006"), nc.City, nc.Callsign)
 		}
+		bodyText += "\nSimply respond to this email with your name, callsign and date to signup for a net control position.\n"
 		m.SetBody("text/plain", bodyText)
 
 		if err := d.DialAndSend(m); err != nil {
