@@ -87,7 +87,7 @@ station:
         smtp-host: smtp.gmail.com
         port: 587
         password: <your password>
-        email: denisovenator@gmail.com # replace with your email.
+        email: denisovenator@gmail.com
 time-report:
     main-mail: nigelpgore@gmail.com
     cc-mail: K6SW@arrl.net
@@ -95,7 +95,70 @@ net-log-directory: /opt/Dropbox/radio/sjraces/net_manager/checkins
 hospital-log-directory: /opt/Dropbox/radio/sjraces/net_manager/hospital
 ```
 
+In this configuration file you will need to replace N6DVS with your
+station's call sign.
+
+If you are using a different mailing server you will need to pass your
+mailing server's smtp host. The port number will likely be the same.
+
+Specify your smtp host password and your email. This email will be used
+to cc you in all communications sent by the application.
+
+Time reports are sent to SJ RACES chief radio officer - main-mail and secretary -
+cc-mail.
+
+You will also need ContactListByName.csv file from the membership database.
+This database is used to find out names from call signs.
+
+hospital_responsibility_schedule.txt file is a copy from: https://www.scc-ares-races.org/hospital/hospital-net-schedule.html
+You need to keep this file up to date in order to make sure that
+hospital net emails are populated properly.
+
+city_responsibility_schedule.txt is downloaded from here: http://www.svecs.net/citynetcontroldates.html
+This file is necessary to keep track of which city is net control of SVECS net.
+You will need to keep this file up to date as well until automatic
+retrieval of svecs schedule is implemented.
+
+netcontrol_schedule.txt is the file that you update as people sign up
+for net control positions.
+
+Here is an example of net control schedule file. You only need to add records
+to the file. Don't delete older records. They are necessary for generating
+certificates at the end of the year.
+
+```
+07/05/2022	w6esl
+07/12/2022	kj6uxt
+07/19/2022	kj6uxt
+07/26/2022	ak6by
+08/02/2022	w6gyq
+08/09/2022	kj6uxt
+08/16/2022	kj6uxt
+```
+
+
+
 Following a Net
 ===============
 
 As you follow a net you can popu
+
+```
+$ net_manager -count -net-log 2022-09-13.txt
+```
+
+Sending Emails
+==============
+
+```
+$ net_manager -send-emails
+```
+
+Generating Montly Timesheet
+===========================
+
+Most of the time you don't need to run this command manually, because it's
+done by -send-emails command.
+```
+$ net_manager -time-sheet -month-prefix '2022-09'
+```
