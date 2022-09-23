@@ -10,8 +10,9 @@ Installing Tools
 ----------------
 
 In order to compile net manager you will need golang compiler.
-Download it from this link and install according to your operating system
-instructions.
+
+Download it from [this](https://go.dev/dl/) link and install according to your
+operating system instructions.
 
 After installing the compiler you need to download the source code. You can do
 it either by cloning the repo using git command line client. In this case you
