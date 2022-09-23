@@ -1,13 +1,13 @@
 Introduction
-------------
+============
 
 Net manager is a command line application for handling net manager paper work.
 
 Compiling Net Manager
----------------------
+=====================
 
 Installing Tools
-================
+----------------
 
 In order to compile net manager you will need golang compiler.
 Download it from this link and install according to your operating system
@@ -19,7 +19,7 @@ will also need to install git command line client:
 https://git-scm.com/downloads
 
 Getting Source Code
-===================
+-------------------
 
 Once git command line client is installed you need to run:
 
@@ -34,7 +34,7 @@ $ wget https://github.com/VictorDenisov/net_manager/archive/refs/heads/master.zi
 ```
 
 Building Source Code
-====================
+--------------------
 
 In order to build source code simply run
 
@@ -52,7 +52,7 @@ will move the compiled binary file into the bin directory of your golang
 installation.
 
 General Configuration
----------------------
+=====================
 
 Configuration files for net manager are stored in .net-manager directory in
 your user's home directory.
@@ -74,7 +74,7 @@ Failed to read call signs: Failed to open call signdb: ContactListByName.csv ope
 ```
 
 Configuration File
-==================
+------------------
 
 The whole application is configured by net-manager.conf file in .net-manager
 directory.
@@ -96,6 +96,6 @@ hospital-log-directory: /opt/Dropbox/radio/sjraces/net_manager/hospital
 ```
 
 Following a Net
----------------
+===============
 
 As you follow a net you can popu
