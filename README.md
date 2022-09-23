@@ -43,6 +43,17 @@ In order to build source code simply run
 $ go build
 ```
 
+If you get errors on mac along the lines:
+```
+//go:linkname must refer to declared function or variable
+```
+
+Run this command
+
+```
+$ go get -u golang.org/x/sys
+```
+
 in the directory with net manager's source code.
 
 ```
