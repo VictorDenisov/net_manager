@@ -101,10 +101,11 @@ station:
         password: <your password>
         email: denisovenator@gmail.com
 time-report:
-    main-mail: nigelpgore@gmail.com
-    cc-mail: K6SW@arrl.net
-net-log-directory: /opt/Dropbox/radio/sjraces/net_manager/checkins
-hospital-log-directory: /opt/Dropbox/radio/sjraces/net_manager/hospital
+    main-mail: chief_officer@gmail.com
+    cc-mail: deputy_officer@arrl.net
+net-log-directory: /opt/net_manager/checkins
+hospital-log-directory: /opt/net_manager/hospital
+mailing-list: main@ares-races.groups.io
 ```
 
 In this configuration file you will need to replace N6DVS with your
@@ -139,16 +140,14 @@ to the file. Don't delete older records. They are necessary for generating
 certificates at the end of the year.
 
 ```
-07/05/2022	w6esl
-07/12/2022	kj6uxt
-07/19/2022	kj6uxt
-07/26/2022	ak6by
-08/02/2022	w6gyq
-08/09/2022	kj6uxt
-08/16/2022	kj6uxt
+07/05/2022	W6XRL4
+07/12/2022	W6XRL3
+07/19/2022	W6XRL1
+07/26/2022	W6XRL8
+08/02/2022	W6XRL2
+08/09/2022	W6XRL3
+08/16/2022	W6XRL9
 ```
-
-
 
 Following a Net
 ===============
