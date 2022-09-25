@@ -44,15 +44,13 @@ func main() {
 	logLevelString := flag.String("debug-level", "info", "Debug level of the application")
 	flag.Parse()
 
-	config := readConfig()
-
-	fmt.Printf("Parsed config: %v\n", config)
-
 	logLevel, err := log.ParseLevel(*logLevelString)
 	if err != nil {
 		fmt.Printf("Failed to parse log level: %v", *logLevelString)
 	}
 	log.SetLevel(logLevel)
+
+	config := readConfig()
 
 	workingDirectory, err := os.Getwd()
 	if err != nil {
@@ -138,11 +136,15 @@ func upcomingWednesday(t time.Time) time.Time {
 }
 
 func sendHospitalAnnouncement(config *Config, callsignDB map[string]Member, monthPrefix string) {
+	if config.MailingList == "" {
+		log.Errorf("Empty mailing list config. Not sending hospital announcement.")
+		return
+	}
 	d := gomail.NewDialer(config.Station.Mail.SmtpHost, config.Station.Mail.Port, config.Station.Mail.Email, config.Station.Mail.Password)
 
 	m := gomail.NewMessage()
 	m.SetHeader("From", config.Station.Mail.Email)
-	m.SetHeader("To", "Main@SJ-RACES.groups.io")
+	m.SetHeader("To", config.MailingList)
 
 	m.SetHeader("Subject", fmt.Sprintf("[SJ-RACES] Hospital Net next Wednesday, 7pm"))
 	bodyText := ""
@@ -265,6 +267,10 @@ func sendReport(config *Config, callsigns map[string]Member) {
 }
 
 func callForSignups(ncSchedule []NetcontrolScheduleRecord, config *Config) {
+	if config.MailingList == "" {
+		log.Errorf("Empty mailing list config. Not sending Tuesday net announcement.")
+		return
+	}
 	citySchedule, err := readCityResponsibilitySchedule()
 	if err != nil {
 		fmt.Printf("Failed to read city responsibility schedule: %v\n", err)
@@ -303,7 +309,7 @@ func callForSignups(ncSchedule []NetcontrolScheduleRecord, config *Config) {
 
 		m := gomail.NewMessage()
 		m.SetHeader("From", config.Station.Mail.Email)
-		m.SetHeader("To", "Main@SJ-RACES.groups.io")
+		m.SetHeader("To", config.MailingList)
 		m.SetHeader("Subject", fmt.Sprintf("[SJ-RACES] SJ RACES Net Control for %v", nextMonthStart.Format("Jan 2006")))
 		bodyText := ""
 		bodyText += "Hi,\n\n"

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
 
@@ -15,6 +16,7 @@ type Config struct {
 	Station     Station `yaml:"station"`
 	NetDir      string  `yaml:"net-log-directory"`
 	HospitalDir string  `yaml:"hospital-log-directory"`
+	MailingList string  `yaml:"mailing-list"`
 	TimeReport  struct {
 		MainMail string `yaml:"main-mail"`
 		CcMail   string `yaml:"cc-mail"`
@@ -95,5 +97,7 @@ parse:
 		fmt.Fprintf(os.Stderr, "Proceeding without config file.\n")
 		config = nil
 	}
+	out, err := yaml.Marshal(config)
+	log.Tracef("Parsed config: \n%v\n", string(out))
 	return
 }
