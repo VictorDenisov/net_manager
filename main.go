@@ -492,7 +492,9 @@ func readCallsignDB() (r map[string]Member, err error) {
 		callsign := strings.TrimSpace(fields[2])
 		email := strings.TrimSpace(fields[7])
 
-		r[callsign] = Member{name, callsign, email}
+		if callsign != "" {
+			r[callsign] = Member{name, callsign, email}
+		}
 	}
 	return
 }
@@ -529,86 +531,117 @@ type CheckinChans struct {
 	unknownCallSign <-chan string
 }
 
-func distributeCheckins(callSigns map[string]Member, netLog <-chan string) (r *CheckinChans) {
+type CheckinItem interface {
+	accept(v CheckinItemVisitor)
+}
+
+type CheckinItemVisitor interface {
+	visitDup(d *DupCheckin)
+	visitMember(m *MemberCheckin)
+	visitSection()
+	visitUnknown(u *UnknownCheckin)
+}
+
+type DupCheckin struct {
+	s string
+}
+
+func (d *DupCheckin) accept(v CheckinItemVisitor) {
+	v.visitDup(d)
+}
+
+type MemberCheckin struct {
+	s string
+}
+
+func (d *MemberCheckin) accept(v CheckinItemVisitor) {
+	v.visitMember(d)
+}
+
+type SectionCheckin struct {
+}
+
+func (d *SectionCheckin) accept(v CheckinItemVisitor) {
+	v.visitSection()
+}
+
+type UnknownCheckin struct {
+	s string
+}
+
+func (d *UnknownCheckin) accept(v CheckinItemVisitor) {
+	v.visitUnknown(d)
+}
+
+func annotateCheckins(callSigns map[string]Member, netLog <-chan string) <-chan CheckinItem {
 	confirmedMembers := make(map[string]struct{})
 	sectionMembers := make(map[string]struct{})
 
-	dupCallSign := make(chan string)
-	memberCallSign := make(chan string)
-	sectionMarker := make(chan struct{})
-	unknownCallSign := make(chan string)
-
-	r = &CheckinChans{
-		dupCallSign:     dupCallSign,
-		memberCallSign:  memberCallSign,
-		sectionMarker:   sectionMarker,
-		unknownCallSign: unknownCallSign,
-	}
+	r := make(chan CheckinItem)
 	go func() {
 		for v := range netLog {
-			if _, ok := callSigns[v]; ok {
-				if _, ok := confirmedMembers[v]; ok {
-					dupCallSign <- v
-				} else {
-					memberCallSign <- v
-					sectionMembers[v] = struct{}{}
-				}
-				confirmedMembers[v] = struct{}{}
+			if v == "" {
+				r <- &SectionCheckin{}
 			} else {
-				if v == "" {
-					sectionMarker <- struct{}{}
+				if _, ok := callSigns[v]; ok {
+					if _, ok := confirmedMembers[v]; ok {
+						r <- &DupCheckin{v}
+					} else {
+						r <- &MemberCheckin{v}
+						sectionMembers[v] = struct{}{}
+					}
+					confirmedMembers[v] = struct{}{}
 				} else {
-					unknownCallSign <- v
+					r <- &UnknownCheckin{v}
 				}
 			}
 		}
-		sectionMarker <- struct{}{}
-		close(dupCallSign)
-		close(memberCallSign)
-		close(sectionMarker)
-		close(unknownCallSign)
+		r <- &SectionCheckin{}
+		close(r)
 	}()
 	return r
 }
 
-func countCheckins(callSigns map[string]Member, netLog <-chan string) {
-	checkinChans := distributeCheckins(callSigns, netLog)
+type CheckinCounter struct {
+	sectionCount int
+	totalCount   int
+}
 
-	sectionCount := 0
-	totalCount := 0
-loop:
+func (c *CheckinCounter) visitDup(d *DupCheckin) {
+	fmt.Printf("%v = \n", d.s)
+}
+
+func (c *CheckinCounter) visitMember(m *MemberCheckin) {
+	fmt.Printf("%v\n", m.s)
+	c.sectionCount++
+	c.totalCount++
+}
+
+func (c *CheckinCounter) visitSection() {
+	if c.sectionCount > 0 {
+		fmt.Printf("Section count: %v\n", c.sectionCount)
+		c.sectionCount = 0
+	}
+	fmt.Printf("\n")
+}
+
+func (c *CheckinCounter) visitUnknown(u *UnknownCheckin) {
+	fmt.Printf("%v - \n", u.s)
+}
+
+func countCheckins(callSigns map[string]Member, netLog <-chan string) {
+	checkinChan := annotateCheckins(callSigns, netLog)
+
+	cc := &CheckinCounter{}
 	for {
-		select {
-		case dup, ok := <-checkinChans.dupCallSign:
-			if !ok {
-				break loop
-			}
-			fmt.Printf("%v = \n", dup)
-		case member, ok := <-checkinChans.memberCallSign:
-			if !ok {
-				break loop
-			}
-			fmt.Printf("%v\n", member)
-			sectionCount++
-			totalCount++
-		case _, ok := <-checkinChans.sectionMarker:
-			if !ok {
-				break loop
-			}
-			if sectionCount > 0 {
-				fmt.Printf("Section count: %v\n", sectionCount)
-				sectionCount = 0
-			}
-			fmt.Printf("\n")
-		case unknown, ok := <-checkinChans.unknownCallSign:
-			if !ok {
-				break loop
-			}
-			fmt.Printf("%v - \n", unknown)
+		c, ok := <-checkinChan
+		if !ok {
+			break
 		}
+		c.accept(cc)
 	}
 
-	fmt.Printf("Confirmed members: %v\n", totalCount)
+	fmt.Printf("Confirmed members: %v\n", cc.totalCount)
 }
 
 func sortCheckins(callSigns map[string]Member, netLog <-chan string) {
@@ -706,29 +739,32 @@ func hospitalHoursCount(monthPrefix string, logDirectory string, callSigns map[s
 	return totalHours, nil
 }
 
+type TotalCounter struct {
+	totalCount int
+}
+
+func (c *TotalCounter) visitDup(d *DupCheckin) {
+}
+
+func (c *TotalCounter) visitMember(m *MemberCheckin) {
+	c.totalCount++
+}
+
+func (c *TotalCounter) visitSection() {
+}
+
+func (c *TotalCounter) visitUnknown(u *UnknownCheckin) {
+}
+
 func totalCheckins(callSigns map[string]Member, netLog <-chan string) (r int) {
-	checkinChans := distributeCheckins(callSigns, netLog)
-loop:
+	checkinChan := annotateCheckins(callSigns, netLog)
+	tc := &TotalCounter{}
 	for {
-		select {
-		case _, ok := <-checkinChans.dupCallSign:
-			if !ok {
-				break loop
-			}
-		case _, ok := <-checkinChans.memberCallSign:
-			if !ok {
-				break loop
-			}
-			r++
-		case _, ok := <-checkinChans.sectionMarker:
-			if !ok {
-				break loop
-			}
-		case _, ok := <-checkinChans.unknownCallSign:
-			if !ok {
-				break loop
-			}
+		c, ok := <-checkinChan
+		if !ok {
+			break
 		}
+		c.accept(tc)
 	}
 	return r
 }
