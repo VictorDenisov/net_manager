@@ -529,6 +529,47 @@ type CheckinChans struct {
 	unknownCallSign <-chan string
 }
 
+type CheckinItem interface {
+	Accept(v CheckinItemVisitor) string
+}
+
+type CheckinItemVisitor interface {
+	visitDup(d *DupCheckin)
+	visitMember(m *MemberCheckin)
+	visitSection()
+	visitUnknown(u *UnknownCheckin)
+}
+
+type DupCheckin struct {
+	s string
+}
+
+func (d *DupCheckin) accept(v CheckinItemVisitor) {
+	v.visitDup(d)
+}
+
+type MemberCheckin struct {
+	s string
+}
+
+func (d *MemberCheckin) accept(v CheckinItemVisitor) {
+	v.visitMember(d)
+}
+
+type SectionCheckin struct {
+}
+
+func (d *SectionCheckin) accept(v CheckinItemVisitor) {
+	v.visitSection()
+}
+
+type UnknownCheckin struct {
+}
+
+func (d *UnknownCheckin) accept(v CheckinItemVisitor) {
+	v.visitUnknown(d)
+}
+
 func distributeCheckins(callSigns map[string]Member, netLog <-chan string) (r *CheckinChans) {
 	confirmedMembers := make(map[string]struct{})
 	sectionMembers := make(map[string]struct{})
