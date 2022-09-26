@@ -573,7 +573,7 @@ func (d *UnknownCheckin) accept(v CheckinItemVisitor) {
 	v.visitUnknown(d)
 }
 
-func distributeCheckins(callSigns map[string]Member, netLog <-chan string) <-chan CheckinItem {
+func annotateCheckins(callSigns map[string]Member, netLog <-chan string) <-chan CheckinItem {
 	confirmedMembers := make(map[string]struct{})
 	sectionMembers := make(map[string]struct{})
 
@@ -630,7 +630,7 @@ func (c *CheckinCounter) visitUnknown(u *UnknownCheckin) {
 }
 
 func countCheckins(callSigns map[string]Member, netLog <-chan string) {
-	checkinChan := distributeCheckins(callSigns, netLog)
+	checkinChan := annotateCheckins(callSigns, netLog)
 
 	cc := &CheckinCounter{}
 	for {
@@ -757,7 +757,7 @@ func (c *TotalCounter) visitUnknown(u *UnknownCheckin) {
 }
 
 func totalCheckins(callSigns map[string]Member, netLog <-chan string) (r int) {
-	checkinChan := distributeCheckins(callSigns, netLog)
+	checkinChan := annotateCheckins(callSigns, netLog)
 	tc := &TotalCounter{}
 	for {
 		c, ok := <-checkinChan
