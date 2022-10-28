@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -209,23 +210,45 @@ func readHospitalSchedule(monthPrefix, logDirectory string, callsignDB map[strin
 			log.Errorf("More than one hospital net log for one month")
 			break
 		}
-		checkins, err := readCheckins(f)
+		res, err = readHospitalAssignments(f, callsignDB)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to read hospital log: %w", err)
 		}
-		for _, h := range Hospitals {
-			if c, ok := <-checkins; ok {
-				fmt.Printf("value from hospital log: %v\n", c)
-				if c != "" {
-					res[h.Acronym] = callsignDB[c]
-				}
-			} else {
-				fmt.Printf("No value from hospital log\n")
-				break
-			}
-		}
 	}
 	return
+}
+
+func readHospitalAssignments(logFileName string, callsignDB map[string]Member) (res map[string]Member, err error) {
+	res = make(map[string]Member)
+	f, err := os.Open(logFileName)
+	if err != nil {
+		return nil, err
+	}
+	lineReader := bufio.NewReader(f)
+	log.Tracef("Openned line reader. Starting channel.")
+	defer f.Close()
+	for {
+		line, _, err := lineReader.ReadLine()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Tracef("Error while reading line: %v", err)
+			return nil, err
+		}
+		log.Tracef("Read checkin line: %v", line)
+		s := strings.TrimSpace(strings.ToUpper(string(line)))
+		ps := strings.Split(s, " ")
+		if len(ps) != 2 {
+			return nil, fmt.Errorf("Unknown format of hospital file: %v", s)
+		}
+		member, ok := callsignDB[ps[1]]
+		if !ok {
+			return nil, fmt.Errorf("Unknown callsign: %v", ps[1])
+		}
+		res[ps[0]] = member
+	}
+	return res, nil
 }
 
 func sendReport(config *Config, callsigns map[string]Member) {

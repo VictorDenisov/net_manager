@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -30,4 +31,13 @@ func TestWeekdayNumber8(t *testing.T) {
 func TestWeekdayNumber31(t *testing.T) {
 	date := time.Date(2022, 8, 31, 0, 0, 0, 0, time.Now().Location())
 	assert.Equal(t, 5, weekdayNumber(date), "Wrong weekday of month number")
+}
+
+func TestReadHospitalAssignments(t *testing.T) {
+	callsigns := make(map[string]Member)
+	callsigns["K4LXF4"] = Member{"Herman", "K4LXF4", "herman@munster.com"}
+	res, err := readHospitalAssignments("testHospital.txt", callsigns)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(res))
+	assert.Equal(t, "Herman", res["GSH"].Name)
 }
