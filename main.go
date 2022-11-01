@@ -299,18 +299,7 @@ func sendReport(config *Config, callsigns map[string]Member) {
 	}
 }
 
-func callForSignups(ncSchedule []NetcontrolScheduleRecord, config *Config) {
-	if config.MailingList == "" {
-		log.Errorf("Empty mailing list config. Not sending Tuesday net announcement.")
-		return
-	}
-	citySchedule, err := readCityResponsibilitySchedule()
-	if err != nil {
-		fmt.Printf("Failed to read city responsibility schedule: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Printf("Parsed city responsibility schedule: %v\n", citySchedule)
+func timeToSendNetSignups() (bool, time.Time) {
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	var nextMonthStart time.Time
@@ -323,6 +312,24 @@ func callForSignups(ncSchedule []NetcontrolScheduleRecord, config *Config) {
 
 	fmt.Printf("Distance %v\n", distance)
 	fmt.Printf("NextMonthStart %v\n", nextMonthStart)
+	return distance < time.Hour*24*10, nextMonthStart
+}
+
+func callForSignups(ncSchedule []NetcontrolScheduleRecord, config *Config) {
+	if config.MailingList == "" {
+		log.Errorf("Empty mailing list config. Not sending Tuesday net announcement.")
+		return
+	}
+	citySchedule, err := readCityResponsibilitySchedule()
+	if err != nil {
+		fmt.Printf("Failed to read city responsibility schedule: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Parsed city responsibility schedule: %v\n", citySchedule)
+
+	tss, nextMonthStart := timeToSendNetSignups()
+
 	if !monthCityComplete(nextMonthStart, citySchedule) {
 		fmt.Printf("Next month city schedule is incomplete. Add more records.\n")
 		os.Exit(1)
@@ -330,7 +337,8 @@ func callForSignups(ncSchedule []NetcontrolScheduleRecord, config *Config) {
 	monthFull, ms := monthSchedule(nextMonthStart, ncSchedule, citySchedule)
 	fmt.Printf("Month schedule: %v\n", ms)
 	fmt.Printf("Month full: %v\n", monthFull)
-	if distance < time.Hour*24*10 && !monthFull {
+
+	if tss && !monthFull {
 		fmt.Printf("Hi,\n")
 		fmt.Printf("Net control positions are open.\n")
 		fmt.Printf("Here is the schedule right now:\n")
