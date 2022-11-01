@@ -99,7 +99,19 @@ func main() {
 		}
 		sendHospitalAnnouncement(config, callSigns, *monthPrefix)
 	} else if *sendNetSignups {
-		// TODO
+		if !validMonthPrefixFormat(monthPrefix) {
+			fmt.Printf("Month prefix is invalid")
+			os.Exit(1)
+		}
+		ncSchedule, err := readNetcontrolSchedule()
+		if err != nil {
+			fmt.Printf("Failed to parse net control schedule: %v\n", err)
+			os.Exit(1)
+		}
+		var year, month int
+		fmt.Sscanf(*monthPrefix, "%d-%d", &year, &month)
+		nextMonthStart := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Now().Location())
+		callForSignups(nextMonthStart, ncSchedule, config)
 	}
 }
 
