@@ -92,6 +92,7 @@ The whole application is configured by net-manager.conf file in .net-manager
 directory.
 
 ```
+# This line is a comment
 station:
     call: N6DVS
     signature: N6DVS
