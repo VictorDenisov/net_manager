@@ -40,6 +40,7 @@ func main() {
 	sort := flag.Bool("sort", false, "Sort and print member checkins")
 	timeSheet := flag.Bool("time-sheet", false, "Calculate time sheet for the specified month")
 	sendEmails := flag.Bool("send-emails", false, "Check if it's time to send emails")
+	sendHospitalSignups := flag.Bool("send-hospital-signups", false, "Send hospital net signup announcement. Use month prefix from month prefix argument.")
 	monthPrefix := flag.String("month-prefix", "", "Month prefix in the format year-mo for drawing time sheet")
 	netLogFile := flag.String("net-log", "net_log.txt", "File with net log")
 	logLevelString := flag.String("debug-level", "info", "Debug level of the application")
@@ -90,6 +91,12 @@ func main() {
 	} else if *sendEmails {
 		log.Trace("Checking if emails should be sent")
 		dispatchEmails(callSigns, config)
+	} else if *sendHospitalSignups {
+		if !validMonthPrefixFormat(monthPrefix) {
+			fmt.Printf("Month prefix is invalid")
+			os.Exit(1)
+		}
+		sendHospitalAnnouncement(config, callSigns, *monthPrefix)
 	}
 }
 
