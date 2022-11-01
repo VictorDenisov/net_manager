@@ -41,7 +41,8 @@ func main() {
 	timeSheet := flag.Bool("time-sheet", false, "Calculate time sheet for the specified month")
 	sendEmails := flag.Bool("send-emails", false, "Check if it's time to send emails")
 	sendHospitalSignups := flag.Bool("send-hospital-signups", false, "Send hospital net signup announcement. Use month prefix from month prefix argument.")
-	sendNetSignups := flag.Bool("send-net-signups", false, "Send net signup announcement.")
+	sendNetSignups := flag.Bool("send-net-signups", false, "Send net signup announcement. Use month prefix from month prefix argument to specify month")
+	alertNetControl := flag.Bool("alert-net-control", false, "Alert upcoming net control.")
 	monthPrefix := flag.String("month-prefix", "", "Month prefix in the format year-mo for drawing time sheet")
 	netLogFile := flag.String("net-log", "net_log.txt", "File with net log")
 	logLevelString := flag.String("debug-level", "info", "Debug level of the application")
@@ -112,6 +113,16 @@ func main() {
 		fmt.Sscanf(*monthPrefix, "%d-%d", &year, &month)
 		nextMonthStart := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Now().Location())
 		callForSignups(nextMonthStart, ncSchedule, config)
+	} else if *alertNetControl {
+		ncSchedule, err := readNetcontrolSchedule()
+		if err != nil {
+			fmt.Printf("Failed to parse net control schedule: %v\n", err)
+			os.Exit(1)
+		}
+		err = notifyNetControl(callSigns, config, ncSchedule)
+		if err != nil {
+			fmt.Printf("Failed to notify net control: %v\n", err)
+		}
 	}
 }
 
