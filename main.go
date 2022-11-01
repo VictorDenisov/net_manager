@@ -41,6 +41,7 @@ func main() {
 	timeSheet := flag.Bool("time-sheet", false, "Calculate time sheet for the specified month")
 	sendEmails := flag.Bool("send-emails", false, "Check if it's time to send emails")
 	sendHospitalSignups := flag.Bool("send-hospital-signups", false, "Send hospital net signup announcement. Use month prefix from month prefix argument.")
+	sendNetSignups := flag.Bool("send-net-signups", false, "Send net signup announcement.")
 	monthPrefix := flag.String("month-prefix", "", "Month prefix in the format year-mo for drawing time sheet")
 	netLogFile := flag.String("net-log", "net_log.txt", "File with net log")
 	logLevelString := flag.String("debug-level", "info", "Debug level of the application")
@@ -97,6 +98,8 @@ func main() {
 			os.Exit(1)
 		}
 		sendHospitalAnnouncement(config, callSigns, *monthPrefix)
+	} else if *sendNetSignups {
+		// TODO
 	}
 }
 
