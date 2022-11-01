@@ -119,7 +119,10 @@ func dispatchEmails(callsignDB map[string]Member, config *Config) {
 		os.Exit(1)
 	}
 
-	callForSignups(ncSchedule, config)
+	tss, nextMonthStart := timeToSendNetSignups()
+	if tss {
+		callForSignups(nextMonthStart, ncSchedule, config)
+	}
 
 	now := time.Now()
 	if now.Weekday() == time.Sunday {
@@ -315,7 +318,7 @@ func timeToSendNetSignups() (bool, time.Time) {
 	return distance < time.Hour*24*10, nextMonthStart
 }
 
-func callForSignups(ncSchedule []NetcontrolScheduleRecord, config *Config) {
+func callForSignups(nextMonthStart time.Time, ncSchedule []NetcontrolScheduleRecord, config *Config) {
 	if config.MailingList == "" {
 		log.Errorf("Empty mailing list config. Not sending Tuesday net announcement.")
 		return
@@ -328,8 +331,6 @@ func callForSignups(ncSchedule []NetcontrolScheduleRecord, config *Config) {
 
 	fmt.Printf("Parsed city responsibility schedule: %v\n", citySchedule)
 
-	tss, nextMonthStart := timeToSendNetSignups()
-
 	if !monthCityComplete(nextMonthStart, citySchedule) {
 		fmt.Printf("Next month city schedule is incomplete. Add more records.\n")
 		os.Exit(1)
@@ -338,7 +339,7 @@ func callForSignups(ncSchedule []NetcontrolScheduleRecord, config *Config) {
 	fmt.Printf("Month schedule: %v\n", ms)
 	fmt.Printf("Month full: %v\n", monthFull)
 
-	if tss && !monthFull {
+	if !monthFull {
 		fmt.Printf("Hi,\n")
 		fmt.Printf("Net control positions are open.\n")
 		fmt.Printf("Here is the schedule right now:\n")
