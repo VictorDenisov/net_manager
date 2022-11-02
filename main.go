@@ -503,6 +503,7 @@ func notifyNetControl(callsignDB map[string]Member, config *Config, netcontrolSc
 }
 
 func readNetcontrolSchedule() ([]NetcontrolScheduleRecord, error) {
+	now := time.Now()
 	f, err := openFile(NetcontrolScheduleFileName)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open netcontrol schedule: %w", err)
@@ -521,6 +522,7 @@ func readNetcontrolSchedule() ([]NetcontrolScheduleRecord, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Failed to parse netcontrol schedule: %w", err)
 		}
+		date = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, now.Location())
 		callsign := string(bytes.TrimSpace(tokens[1]))
 		records = append(records, NetcontrolScheduleRecord{date, callsign})
 	}
