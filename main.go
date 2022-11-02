@@ -43,6 +43,7 @@ func main() {
 	sendHospitalSignups := flag.Bool("send-hospital-signups", false, "Send hospital net signup announcement. Use month prefix from month prefix argument.")
 	sendNetSignups := flag.Bool("send-net-signups", false, "Send net signup announcement. Use month prefix from month prefix argument to specify month")
 	alertNetControl := flag.Bool("alert-net-control", false, "Alert upcoming net control.")
+	sendReportFlag := flag.Bool("send-report", false, "Send net report to the chief radio officer.")
 	monthPrefix := flag.String("month-prefix", "", "Month prefix in the format year-mo for drawing time sheet")
 	netLogFile := flag.String("net-log", "net_log.txt", "File with net log")
 	logLevelString := flag.String("debug-level", "info", "Debug level of the application")
@@ -123,6 +124,8 @@ func main() {
 		if err != nil {
 			fmt.Printf("Failed to notify net control: %v\n", err)
 		}
+	} else if *sendReportFlag {
+		sendReport(config, callSigns)
 	}
 }
 
