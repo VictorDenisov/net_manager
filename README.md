@@ -193,21 +193,31 @@ Request Net Signups
 -------------------
 
 ```
-$ net_manager -send-net-signups
+$ net_manager -send-net-signups -month-prefix 2022-10
 ```
 
 This command will send an email requesting volunteers for Tuesday net
-positions.
+positions for the specified month.
 
 Request Hospital Net Signups
 ----------------------------
 
 ```
-$ net_manager -send-hospital-signups
+$ net_manager -send-hospital-signups -month-prefix 2022-10
 ```
 
 This command will send an email requesting volunteers for hospital net
-positions.
+positions for the specified month.
+
+Send Report
+-----------
+
+```
+$ net_manager -send-report -month-prefix 2022-10
+```
+
+This command will send report for the specified month to the chief radio
+officer.
 
 Generating Montly Timesheet
 ===========================
