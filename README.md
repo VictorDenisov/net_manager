@@ -166,6 +166,49 @@ Sending Emails
 $ net_manager -send-emails
 ```
 
+This command will send a report to the chief radio officer if it's the first
+day of the month.
+
+If it's 10 days before the next month and the net control schedule for the next
+month is not filled up yet it will send an announcement inviting net control
+volunteers.
+
+If it's one week until the hospital net it will send the invitation to
+volunteer for hospital net positions.
+
+There are flags to send each of those emails forcefully irrespective of time.
+
+Alert Net Control
+-----------------
+
+```
+$ net_manager -alert-net-control
+```
+
+This command will look up the upcoming net control position and send an email
+to the net control requesting a confirmation.
+
+
+Request Net Signups
+-------------------
+
+```
+$ net_manager -send-net-signups
+```
+
+This command will send an email requesting volunteers for Tuesday net
+positions.
+
+Request Hospital Net Signups
+----------------------------
+
+```
+$ net_manager -send-hospital-signups
+```
+
+This command will send an email requesting volunteers for hospital net
+positions.
+
 Generating Montly Timesheet
 ===========================
 
