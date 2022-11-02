@@ -125,7 +125,14 @@ func main() {
 			fmt.Printf("Failed to notify net control: %v\n", err)
 		}
 	} else if *sendReportFlag {
-		sendReport(config, callSigns)
+		if !validMonthPrefixFormat(monthPrefix) {
+			fmt.Printf("Month prefix is invalid")
+			os.Exit(1)
+		}
+		var year, month int
+		fmt.Sscanf(*monthPrefix, "%d-%d", &year, &month)
+		monthStart := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Now().Location())
+		sendReport(config, callSigns, monthStart)
 	}
 }
 
@@ -159,7 +166,9 @@ func dispatchEmails(callsignDB map[string]Member, config *Config) {
 	}
 	if now.Day() == 1 {
 		log.Trace("Sending time sheet\n")
-		sendReport(config, callsignDB)
+		now := time.Now()
+		previousMonthTime := time.Date(now.Year(), now.Month()-1, 1, 0, 0, 0, 0, now.Location())
+		sendReport(config, callsignDB, previousMonthTime)
 	}
 	if weekdayNumber(upcomingWednesday(now)) == 4 {
 		monthPrefix := fmt.Sprintf("%d-%02d", now.Year(), now.Month())
@@ -290,9 +299,7 @@ func readHospitalAssignments(logFileName string, callsignDB map[string]Member) (
 	return res, nil
 }
 
-func sendReport(config *Config, callsigns map[string]Member) {
-	now := time.Now()
-	previousMonthTime := time.Date(now.Year(), now.Month()-1, 1, 0, 0, 0, 0, now.Location())
+func sendReport(config *Config, callsigns map[string]Member, previousMonthTime time.Time) {
 	monthPrefix := fmt.Sprintf("%d-%02d", previousMonthTime.Year(), previousMonthTime.Month())
 	netString, netHours, err := drawTimeSheetString(monthPrefix, config.NetDir, callsigns)
 	hospitalHours, err := hospitalHoursCount(monthPrefix, config.HospitalDir, callsigns)
