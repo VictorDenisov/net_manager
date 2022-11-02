@@ -441,6 +441,20 @@ type NetcontrolScheduleRecord struct {
 	Callsign string
 }
 
+type NetcontrolSchedule []NetcontrolScheduleRecord
+
+func (s NetcontrolSchedule) Len() int {
+	return len(s)
+}
+
+func (s NetcontrolSchedule) Less(i, j int) bool {
+	return s[i].Date.Before(s[j].Date)
+}
+
+func (s NetcontrolSchedule) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
 func equalByMonth(a, b time.Time) bool {
 	return a.Year() == b.Year() && a.Month() == b.Month()
 }
@@ -451,14 +465,16 @@ func equalByDate(a, b time.Time) bool {
 
 func notifyNetControl(callsignDB map[string]Member, config *Config, netcontrolSchedule []NetcontrolScheduleRecord) error {
 	now := time.Now()
-	inTwoDaysFromNow := now.Add(48 * time.Hour)
-	var upcomingNc NetcontrolScheduleRecord
-	for _, ncRecord := range netcontrolSchedule {
-		if equalByDate(inTwoDaysFromNow, ncRecord.Date) {
-			upcomingNc = ncRecord
-			break
-		}
+
+	sort.Sort(NetcontrolSchedule(netcontrolSchedule))
+	recordIndex := sort.Search(len(netcontrolSchedule), func(i int) bool {
+		return now.Before(netcontrolSchedule[i].Date)
+	})
+	if recordIndex >= len(netcontrolSchedule) {
+		return fmt.Errorf("No upcoming net control found")
 	}
+
+	upcomingNc := netcontrolSchedule[recordIndex]
 
 	ncCallsign := strings.ToUpper(upcomingNc.Callsign)
 
